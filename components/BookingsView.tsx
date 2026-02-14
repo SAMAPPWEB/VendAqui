@@ -26,6 +26,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
   const [modalStep, setModalStep] = useState<'FORM' | 'CHECKOUT' | 'SUCCESS'>('FORM');
   const [search, setSearch] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("PIX");
@@ -82,6 +83,28 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
       const createdBookings: Booking[] = [];
       const finalClientId = selectedClient?.id || "TEMP-" + Date.now();
 
+      if (editingBooking) {
+        // Handle single edit (simplified for now as only 1 item in edit mode)
+        const item = cart[0];
+        const updated = await bookingService.update(editingBooking.id, {
+          clientId: finalClientId,
+          client: clientName.toUpperCase(),
+          whatsapp: whatsappValue.toUpperCase(),
+          tour: item.tour.toUpperCase(),
+          date: item.date,
+          pax: item.pax,
+          price: item.price,
+          status: editingBooking.status,
+          location: hotelSearch.toUpperCase(),
+          confirmed: editingBooking.confirmed,
+          observation: item.observation,
+          paymentMethod: paymentMethod
+        });
+        setBookings(bookings.map(b => b.id === editingBooking.id ? updated : b));
+        setModalStep('SUCCESS');
+        return;
+      }
+
       for (const item of cart) {
         const newBooking = await bookingService.create({
           clientId: finalClientId,
@@ -103,11 +126,33 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
       setBookings([...createdBookings, ...bookings]);
       setModalStep('SUCCESS');
     } catch (error) {
-      console.error("Erro ao criar reserva:", error);
-      alert("Erro ao confirmar reserva. Verifique a conexão.");
+      console.error("Erro ao criar/editar reserva:", error);
+      alert("Erro ao salvar reserva. Verifique a conexão.");
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const openEdit = (b: Booking) => {
+    setEditingBooking(b);
+    setClientName(b.client);
+    setWhatsappValue(b.whatsapp);
+    setHotelSearch(b.location || "");
+    const existingClient = clients.find(c => c.id === b.clientId || c.nome.toUpperCase() === b.client.toUpperCase());
+    setSelectedClient(existingClient || null);
+
+    setCart([{
+      id: b.id,
+      tour: b.tour,
+      date: b.date,
+      pax: b.pax,
+      price: b.price,
+      observation: b.observation || ""
+    }]);
+
+    setPaymentMethod(b.paymentMethod || "PIX");
+    setModalStep('FORM');
+    setShowModal(true);
   };
 
   const handleQuickClientCreate = async (e: React.FormEvent) => {
@@ -174,6 +219,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
             <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">Controle de Saídas</p>
           </div>
           <button onClick={() => {
+            setEditingBooking(null);
             setCart([]); setModalStep('FORM'); setShowModal(true);
             setClientName(""); setWhatsappValue(""); setHotelSearch("");
           }} className="w-14 h-14 bg-orange-500 rounded-3xl flex items-center justify-center shadow-lg active:scale-90 transition-transform cursor-pointer">
@@ -206,6 +252,10 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                 <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 text-white py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
                   <FilePdf size={16} weight="fill" /> Voucher
                 </button>
+                <button onClick={() => openEdit(b)} className="p-3 bg-gray-100 text-gray-500 rounded-xl active:scale-95 transition-all">
+                  <Plus size={20} className="rotate-45 hidden" /> {/* Placeholder fallback */}
+                  <span className="text-[8px] font-black">EDITAR</span>
+                </button>
                 <button onClick={() => handleDelete(b.id)} className="p-3 bg-red-50 text-red-500 rounded-xl active:scale-95 transition-all">
                   <Trash size={20} />
                 </button>
@@ -221,11 +271,18 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
 
             <div className="px-8 pt-8 pb-4 flex justify-between items-center border-b border-gray-100 flex-shrink-0">
               <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter leading-none">
-                {modalStep === 'FORM' ? 'Novo Agendamento' : (modalStep === 'CHECKOUT' ? 'Pagamento' : 'Sucesso!')}
+                {modalStep === 'FORM' ? (editingBooking ? 'Editar Reserva' : 'Novo Agendamento') : (modalStep === 'CHECKOUT' ? 'Pagamento' : 'Sucesso!')}
               </h3>
-              <button onClick={() => !isProcessing && setShowModal(false)} className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-colors">
-                <X size={24} weight="bold" />
-              </button>
+              <div className="flex gap-2">
+                {modalStep !== 'SUCCESS' && (
+                  <button onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-100 rounded-full text-[9px] font-black text-gray-500 uppercase tracking-widest hover:bg-gray-200 transition-colors">
+                    Retornar
+                  </button>
+                )}
+                <button onClick={() => !isProcessing && setShowModal(false)} className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-colors">
+                  <X size={24} weight="bold" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto no-scrollbar p-8 space-y-6">
@@ -380,13 +437,18 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
             </div>
 
             {modalStep !== 'SUCCESS' && (
-              <div className="px-8 py-6 bg-white border-t border-gray-100 flex-shrink-0">
+              <div className="px-8 py-6 bg-white border-t border-gray-100 flex-shrink-0 flex gap-3">
+                {modalStep === 'CHECKOUT' && (
+                  <button onClick={() => setModalStep('FORM')} className="flex-1 bg-gray-100 text-gray-500 rounded-3xl py-6 text-[11px] font-black uppercase active:scale-95 transition-all">
+                    Voltar Editar
+                  </button>
+                )}
                 {modalStep === 'FORM' ? (
-                  <button disabled={cart.length === 0} onClick={() => setModalStep('CHECKOUT')} className="w-full bg-orange-500 text-white rounded-3xl py-6 text-[11px] font-black uppercase shadow-xl disabled:opacity-50">
+                  <button disabled={cart.length === 0} onClick={() => setModalStep('CHECKOUT')} className="flex-1 bg-orange-500 text-white rounded-3xl py-6 text-[11px] font-black uppercase shadow-xl disabled:opacity-50">
                     Prosseguir para Pagamento
                   </button>
                 ) : (
-                  <button disabled={isProcessing} onClick={confirmAndPay} className="w-full bg-orange-500 text-white rounded-3xl py-6 text-[11px] font-black uppercase shadow-xl flex items-center justify-center gap-2">
+                  <button disabled={isProcessing} onClick={confirmAndPay} className="flex-1 bg-orange-500 text-white rounded-3xl py-6 text-[11px] font-black uppercase shadow-xl flex items-center justify-center gap-2">
                     {isProcessing && <CircleNotch className="animate-spin" size={20} />}
                     {isProcessing ? 'PROCESSANDO...' : 'FINALIZAR AGENDAMENTO'}
                   </button>

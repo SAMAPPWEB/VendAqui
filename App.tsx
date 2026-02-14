@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { User, WhiteLabelConfig, Booking, Budget, Client, Transaction, Tour } from "./types";
 import AuthView from "./components/AuthView";
 import DashboardView from "./components/DashboardView";
@@ -11,6 +11,7 @@ import UsersView from "./components/UsersView";
 import BudgetsView from "./components/BudgetsView";
 import ClientPortalView from "./components/ClientPortalView";
 import FinancialView from "./components/FinancialView";
+import TideWidget from "./components/TideWidget";
 import {
   Plus, CalendarCheck, Receipt, Wallet, IdentificationBadge, MapTrifold, House,
   ArrowLeft, SignOut, User as UserIcon, Users as UsersIcon, Bell, X, Warning, CircleNotch, UserCircle, Gear
@@ -115,17 +116,6 @@ const App: React.FC = () => {
     initApp();
   }, []);
 
-  // Notificação com Som
-  useEffect(() => {
-    if (notifications.length > prevNotificationCount.current) {
-      if (!notificationSound.current) {
-        notificationSound.current = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-back-2575.mp3');
-        notificationSound.current.volume = 0.5;
-      }
-      notificationSound.current.play().catch(e => console.log('Som bloqueado pelo navegador:', e));
-    }
-    prevNotificationCount.current = notifications.length;
-  }, [notifications]);
 
   const handleLogin = async (user: User) => {
     if (!user.id) return;
@@ -225,6 +215,18 @@ const App: React.FC = () => {
     return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [bookings, budgets]);
 
+  // Notificação com Som
+  useEffect(() => {
+    if (notifications.length > prevNotificationCount.current) {
+      if (!notificationSound.current) {
+        notificationSound.current = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-back-2575.mp3');
+        notificationSound.current.volume = 0.5;
+      }
+      notificationSound.current.play().catch(e => console.log('Som bloqueado pelo navegador:', e));
+    }
+    prevNotificationCount.current = notifications.length;
+  }, [notifications]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-400 gap-4">
@@ -259,6 +261,7 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <TideWidget />
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             className="w-10 h-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-400 relative active:scale-95 transition-all shadow-sm"

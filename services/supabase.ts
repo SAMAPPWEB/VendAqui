@@ -9,7 +9,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no arquivo .env.local');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+export const isSupabaseConfigured = !!supabaseUrl && !!supabaseAnonKey;
+export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder');
 
 // Função para testar conexão
 export const testConnection = async () => {

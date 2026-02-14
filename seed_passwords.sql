@@ -3,7 +3,7 @@
 -- Mantenha este arquivo seguro e fora do controle de versão público
 -- ============================================
 
--- 1. DESENVOLVEDOR (Samar)
+-- 1. DESENVOLVEDOR (Samar Santos)
 -- Usuário: Samar (ou samapps.web@gmail.com)
 -- Senha: samapp123
 -- Status: ATIVO

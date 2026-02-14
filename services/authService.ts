@@ -37,7 +37,15 @@ export const authService = {
                 .eq('status', 'ATIVO')
                 .maybeSingle();
 
-            if (error || !data) return null;
+            if (error) {
+                console.error('Supabase Query Error:', error);
+                throw new Error(`Erro na consulta (Supabase): ${error.message} (${error.code || ''})`);
+            }
+
+            if (!data) {
+                console.warn('Usuário não encontrado ou inativo:', identifier);
+                throw new Error('Usuário não encontrado ou senha incorreta (Acesso Inativo?)');
+            }
 
             if (senha && data.senha) {
                 const isMatch = await bcrypt.compare(senha, data.senha).catch(() => false);
@@ -47,9 +55,11 @@ export const authService = {
                     return data as User;
                 }
 
-                if (!isMatch) return null;
+                if (!isMatch) {
+                    throw new Error('Senha incorreta. Verifique os dados e tente novamente.');
+                }
             } else if (senha || data.senha) {
-                return null;
+                throw new Error('Configuração de senha inválida para este usuário.');
             }
 
             return data as User;

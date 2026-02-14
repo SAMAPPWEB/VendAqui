@@ -43,9 +43,9 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
           setIsLoading(false);
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setError("Erro de conexão. Tente novamente.");
+      setError(e.message || "Erro de conexão. Tente novamente.");
       setIsLoading(false);
     }
   };

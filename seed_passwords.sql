@@ -16,7 +16,7 @@
 
 -- 3. OPERADOR (Fernanda Berlt)
 -- Usuário: feberlt@gmail.com
--- Senha: (Verificar no Supabase ou redefinir via painel)
+-- Senha: feberlt@gmail.com
 -- Status: ATIVO
 
 -- NOTA: As senhas de usuários e clientes são armazenadas no banco Supabase.

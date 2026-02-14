@@ -68,9 +68,9 @@ const UsersView: React.FC<UsersViewProps> = ({ users, onUpdateUsers }) => {
       setShowModal(false);
       setEditingUser(null);
       setTempAvatar(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao salvar usuário:", error);
-      alert("Erro ao salvar usuário.");
+      alert(`Erro ao salvar usuário: ${error.message}`);
     }
   };
 

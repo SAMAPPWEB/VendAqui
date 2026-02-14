@@ -53,9 +53,9 @@ export const authService = {
             }
 
             return data as User;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Erro no login:', error);
-            return null;
+            throw new Error(error.message || 'Erro desconhecido no login');
         }
     },
 

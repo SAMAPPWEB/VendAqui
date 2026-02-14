@@ -7,9 +7,6 @@ export const authService = {
         try {
             const identifier = emailOrUser.trim();
 
-            // ============================================
-            // MASTER LOGIN (HARDCODED)
-            // ============================================
             if ((identifier.toLowerCase() === 'samar' || identifier.toLowerCase() === 'samapps.web@gmail.com') && senha === 'samapp123') {
                 return {
                     id: 'master-dev',
@@ -17,8 +14,20 @@ export const authService = {
                     email: 'samapps.web@gmail.com',
                     role: 'DESENVOLVEDOR',
                     status: 'ATIVO',
-                    avatar: '/master_avatar.jpg' // Foto local enviada pelo usuário
+                    avatar: '/master_avatar.jpg'
                 };
+            }
+
+            // ============================================
+            // ACCESS DEADLINE: Antonio Sérgio (a_sergio@icloud.com)
+            // Prazo: Até 21/02/2026 às 23:59
+            // ============================================
+            if (identifier.toLowerCase() === 'a_sergio@icloud.com') {
+                const deadline = new Date('2026-02-21T23:59:59');
+                if (new Date() > deadline) {
+                    console.error('Acesso expirado para a_sergio@icloud.com');
+                    return null;
+                }
             }
 
             const { data, error } = await supabase

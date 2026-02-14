@@ -182,7 +182,7 @@ const App: React.FC = () => {
       case 'TASKS': return <TasksView tasks={tasks} onUpdateTasks={setTasks} />;
       case 'CLIENTS': return <ClientsView clients={clients} onUpdateClients={setClients} />;
       case 'USERS': return <UsersView users={users} onUpdateUsers={setUsers} />;
-      case 'SETTINGS': return <SettingsView user={currentUser!} config={whiteLabel} onUpdate={handleConfigUpdate} onExit={() => setCurrentView('DASHBOARD')} onLogout={handleLogout} />;
+      case 'SETTINGS': return <SettingsView user={currentUser!} config={whiteLabel} onUpdate={handleConfigUpdate} onExit={() => setCurrentView('DASHBOARD')} onLogout={handleLogout} onNavigate={setCurrentView} />;
       default: return <DashboardView user={currentUser!} />;
     }
   };

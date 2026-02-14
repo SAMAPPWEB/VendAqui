@@ -13,9 +13,11 @@ interface SettingsProps {
   onUpdate: (config: WhiteLabelConfig) => void;
   onExit: () => void;
   onLogout: () => void;
+  onNavigate: (view: any) => void;
 }
 
-const SettingsView: React.FC<SettingsProps> = ({ user, config, onUpdate, onExit, onLogout }) => {
+const SettingsView: React.FC<SettingsProps> = ({ user, config, onUpdate, onExit, onLogout, onNavigate }) => {
+  const [activeTab, setActiveTab] = useState<'DATOS' | 'FINANCE' | 'AUDIT'>('DATOS');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -110,169 +112,69 @@ const SettingsView: React.FC<SettingsProps> = ({ user, config, onUpdate, onExit,
                     <Trash size={24} color="white" onClick={(e) => { e.stopPropagation(); handleUpdateField({ logo: null }); }} />
                   </div>
                 </>
-              ) : (
-                <>
-                  {isSaving ? <CircleNotch size={24} className="animate-spin text-orange-500" /> : <CloudArrowUp size={32} />}
-                  <span className="text-[8px] font-black uppercase mt-2">Logomarca</span>
-                </>
-              )}
-            </div>
-            <div className="flex-1 w-full space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Nome da Agência</label>
-                <div className="relative">
-                  <Buildings size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
-                  <input
-                    value={localConfig.instanceName}
-                    onChange={(e) => handleUpdateField({ instanceName: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-11 pr-4 text-xs font-black uppercase text-gray-900 outline-none focus:border-orange-500 transition-all"
-                    placeholder="NOME DA EMPRESA"
-                  />
-                </div>
-              </div>
-              <input type="file" ref={fileInputRef} hidden accept="image/png,image/jpeg" onChange={handleLogoUpload} />
-            </div>
-          </div>
-        </div>
-
-        {/* DADOS FISCAIS */}
-        <div className="space-y-4">
-          <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-1">Dados Fiscais & Endereço</h3>
-          <div className="agenda-card bg-white border-gray-100 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">CNPJ</label>
-                <input
-                  value={localConfig.cnpj || ""}
-                  onChange={(e) => handleUpdateField({ cnpj: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-4 text-xs font-bold text-gray-900 outline-none focus:border-orange-500 uppercase"
-                  placeholder="00.000.000/0001-00"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">CADASTUR</label>
-                <input
-                  value={localConfig.cadastur || ""}
-                  onChange={(e) => handleUpdateField({ cadastur: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-4 text-xs font-bold text-gray-900 outline-none focus:border-orange-500 uppercase"
-                  placeholder="00.000000.00-0"
-                />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Endereço Comercial</label>
-              <div className="relative">
-                <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
-                <input
-                  value={localConfig.address || ""}
-                  onChange={(e) => handleUpdateField({ address: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-11 pr-4 text-xs font-bold text-gray-900 outline-none focus:border-orange-500 uppercase"
-                  placeholder="CIDADE, ESTADO, ENDEREÇO COMPLETO"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* CANAIS DE COMUNICAÇÃO E PAGAMENTO */}
-        <div className="space-y-4">
-          <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] px-1">Presença Digital & Financeiro</h3>
-          <div className="agenda-card bg-white border-gray-100 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Instagram</label>
-                <div className="relative">
-                  <InstagramLogo size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-pink-500" />
-                  <input
-                    value={localConfig.instagram || ""}
-                    onChange={(e) => handleUpdateField({ instagram: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-11 pr-4 text-xs font-bold text-gray-900 outline-none focus:border-orange-500"
-                    placeholder="@seuagencia"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Site Oficial</label>
-                <div className="relative">
-                  <Globe size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500" />
-                  <input
-                    value={localConfig.site || ""}
-                    onChange={(e) => handleUpdateField({ site: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-11 pr-4 text-xs font-bold text-gray-900 outline-none focus:border-orange-500"
-                    placeholder="www.seusite.com.br"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">WhatsApp Central</label>
-                <div className="relative">
-                  <WhatsappLogo size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
-                  <input
                     value={localConfig.phone || ""}
-                    onChange={(e) => handleUpdateField({ phone: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-11 pr-4 text-xs font-bold text-gray-900 outline-none focus:border-orange-500 uppercase"
-                    placeholder="+55 (00) 00000-0000"
+              onChange={(e) => handleUpdateField({ phone: e.target.value })}
+              className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-11 pr-4 text-xs font-bold text-gray-900 outline-none focus:border-orange-500 uppercase"
+              placeholder="+55 (00) 00000-0000"
                   />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Chave PIX (Para Voucher)</label>
-                <div className="relative">
-                  <QrCode size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
-                  <input
-                    value={localConfig.pixKey || ""}
-                    onChange={(e) => handleUpdateField({ pixKey: e.target.value })}
-                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-11 pr-4 text-xs font-bold text-gray-900 outline-none focus:border-orange-500 uppercase"
-                    placeholder="CNPJ, E-MAIL OU TELEFONE"
-                  />
-                </div>
-              </div>
             </div>
           </div>
-        </div>
-
-        {/* AÇÕES FINAIS */}
-        <div className="pt-4 space-y-4">
-          <button
-            onClick={handleSaveAndExit}
-            disabled={isSaving}
-            className="w-full flex items-center justify-center gap-3 py-6 rounded-[24px] bg-orange-500 text-[11px] font-black uppercase text-white shadow-xl shadow-orange-500/20 active:scale-95 transition-all disabled:opacity-50"
-          >
-            {isSaving ? <CircleNotch size={20} className="animate-spin" /> : <FloppyDisk size={20} weight="bold" />}
-            SALVAR E SAIR DO PAINEL GESTOR
-          </button>
-
-          <button
-            onClick={async () => {
-              if (window.confirm("Isso irá enviar todos os dados locais para o Supabase. Deseja continuar?")) {
-                setIsSaving(true);
-                try {
-                  const { migrateLocalStorageToSupabase } = await import('../services/migration');
-                  const report = await migrateLocalStorageToSupabase();
-                  alert(`Migração concluída!\nSucesso: ${JSON.stringify(report, null, 2)}`);
-                } catch (e: any) {
-                  alert(`Erro na migração: ${e.message}`);
-                } finally {
-                  setIsSaving(false);
-                }
-              }
-            }}
-            className="w-full flex items-center justify-center gap-3 py-4 rounded-[24px] bg-blue-50 text-[9px] font-black uppercase text-blue-600 border border-blue-100 active:scale-95 transition-all"
-          >
-            <CloudArrowUp size={16} weight="bold" /> MIGRAR DADOS PARA CLOUD (SUPABASE)
-          </button>
-
-          <button
-            onClick={onLogout}
-            className="w-full flex items-center justify-center gap-3 py-4 rounded-[24px] bg-red-50 text-[9px] font-black uppercase text-red-500 border border-red-100 active:scale-95 transition-all"
-          >
-            <SignOut size={16} weight="bold" /> ENCERRAR SESSÃO NO DISPOSITIVO
-          </button>
+          <div className="space-y-1.5">
+            <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Chave PIX (Para Voucher)</label>
+            <div className="relative">
+              <QrCode size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" />
+              <input
+                value={localConfig.pixKey || ""}
+                onChange={(e) => handleUpdateField({ pixKey: e.target.value })}
+                className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 pl-11 pr-4 text-xs font-bold text-gray-900 outline-none focus:border-orange-500 uppercase"
+                placeholder="CNPJ, E-MAIL OU TELEFONE"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
+
+        {/* AÇÕES FINAIS */ }
+  <div className="pt-4 space-y-4">
+    <button
+      onClick={handleSaveAndExit}
+      disabled={isSaving}
+      className="w-full flex items-center justify-center gap-3 py-6 rounded-[24px] bg-orange-500 text-[11px] font-black uppercase text-white shadow-xl shadow-orange-500/20 active:scale-95 transition-all disabled:opacity-50"
+    >
+      {isSaving ? <CircleNotch size={20} className="animate-spin" /> : <FloppyDisk size={20} weight="bold" />}
+      SALVAR E SAIR DO PAINEL GESTOR
+    </button>
+
+    <button
+      onClick={async () => {
+        if (window.confirm("Isso irá enviar todos os dados locais para o Supabase. Deseja continuar?")) {
+          setIsSaving(true);
+          try {
+            const { migrateLocalStorageToSupabase } = await import('../services/migration');
+            const report = await migrateLocalStorageToSupabase();
+            alert(`Migração concluída!\nSucesso: ${JSON.stringify(report, null, 2)}`);
+          } catch (e: any) {
+            alert(`Erro na migração: ${e.message}`);
+          } finally {
+            setIsSaving(false);
+          }
+        }
+      }}
+      className="w-full flex items-center justify-center gap-3 py-4 rounded-[24px] bg-blue-50 text-[9px] font-black uppercase text-blue-600 border border-blue-100 active:scale-95 transition-all"
+    >
+      <CloudArrowUp size={16} weight="bold" /> MIGRAR DADOS PARA CLOUD (SUPABASE)
+    </button>
+
+    <button
+      onClick={onLogout}
+      className="w-full flex items-center justify-center gap-3 py-4 rounded-[24px] bg-red-50 text-[9px] font-black uppercase text-red-500 border border-red-100 active:scale-95 transition-all"
+    >
+      <SignOut size={16} weight="bold" /> ENCERRAR SESSÃO NO DISPOSITIVO
+    </button>
+  </div>
+      </div >
+    </div >
   );
 };
 

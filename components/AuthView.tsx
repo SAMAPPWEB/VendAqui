@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { User } from "../types";
 import { Eye, EyeSlash, Lock, User as UserIcon, Warning, CalendarCheck, ArrowLeft, WhatsappLogo, CheckCircle, CircleNotch, Users } from "phosphor-react";
 import { authService } from "../services/authService";
-import { isSupabaseConfigured } from "../services/supabase";
+import { isSupabaseConfigured, maskedSupabaseUrl } from "../services/supabase";
 
 interface AuthViewProps {
   onLogin: (user: User) => void;
@@ -71,7 +71,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
             {isForgotPassword ? "Portal de Recuperação" : "Passeios privativos - CRM"}
           </p>
           <div className={`inline-block mt-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-tighter ${isSupabaseConfigured ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-            {isSupabaseConfigured ? '🟢 Conexão OK' : '🔴 Configuração Ausente'}
+            {isSupabaseConfigured ? `🟢 Conexão OK (${maskedSupabaseUrl})` : '🔴 Configuração Ausente'}
           </div>
         </div>
 
@@ -101,7 +101,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
                 <input
                   type="text"
                   className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-orange-500 outline-none transition-all text-gray-900 placeholder-gray-400"
-                  placeholder={loginMode === 'EQUIPE' ? "Usuário ou e-mail (VER4)" : "Informe seu nome ou e-mail"}
+                  placeholder={loginMode === 'EQUIPE' ? "Usuário ou e-mail (VER5)" : "Informe seu nome ou e-mail"}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

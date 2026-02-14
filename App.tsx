@@ -40,6 +40,8 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('DASHBOARD');
   const [showNotifications, setShowNotifications] = useState(false);
+  const notificationSound = useRef<HTMLAudioElement | null>(null);
+  const prevNotificationCount = useRef(0);
 
   // Data State
   const [whiteLabel, setWhiteLabel] = useState<WhiteLabelConfig>(DEFAULT_CONFIG);
@@ -112,6 +114,18 @@ const App: React.FC = () => {
 
     initApp();
   }, []);
+
+  // Notificação com Som
+  useEffect(() => {
+    if (notifications.length > prevNotificationCount.current) {
+      if (!notificationSound.current) {
+        notificationSound.current = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-back-2575.mp3');
+        notificationSound.current.volume = 0.5;
+      }
+      notificationSound.current.play().catch(e => console.log('Som bloqueado pelo navegador:', e));
+    }
+    prevNotificationCount.current = notifications.length;
+  }, [notifications]);
 
   const handleLogin = async (user: User) => {
     if (!user.id) return;

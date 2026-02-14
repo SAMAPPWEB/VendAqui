@@ -38,7 +38,10 @@ export const configService = {
 
         const { data, error } = await query.select().single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.config.toApp(data);
     }
 };
@@ -54,7 +57,10 @@ export const userService = {
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return data.map(adapters.user.toApp);
     },
 
@@ -76,7 +82,10 @@ export const userService = {
             .eq('id', id)
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.user.toApp(data);
     },
 
@@ -98,7 +107,10 @@ export const userService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.user.toApp(data);
     },
 
@@ -110,7 +122,10 @@ export const userService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.user.toApp(data);
     },
 
@@ -120,7 +135,10 @@ export const userService = {
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
     }
 };
 
@@ -135,7 +153,10 @@ export const clientService = {
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return data.map(adapters.client.toApp);
     },
 
@@ -146,7 +167,10 @@ export const clientService = {
             .eq('id', id)
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.client.toApp(data);
     },
 
@@ -167,7 +191,10 @@ export const clientService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.client.toApp(data);
     },
 
@@ -188,7 +215,10 @@ export const clientService = {
             .select()
             .maybeSingle(); // maybeSingle handles cases where RLS might hide the updated record
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
 
         // If data is null due to RLS, we at least return what we tried to update 
         // blended with the ID to not break the UI flow, but ideally RLS is fixed.
@@ -203,7 +233,10 @@ export const clientService = {
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
     },
 
     async getHistory(clientId: string) {
@@ -213,7 +246,10 @@ export const clientService = {
             .eq('client_id', clientId)
             .order('data', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return data;
     },
 
@@ -224,7 +260,10 @@ export const clientService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return data;
     }
 };
@@ -240,7 +279,10 @@ export const bookingService = {
             .select('*')
             .order('booking_date', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return data.map(adapters.booking.toApp);
     },
 
@@ -269,7 +311,10 @@ export const bookingService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.booking.toApp(data);
     },
 
@@ -300,7 +345,10 @@ export const bookingService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.booking.toApp(data);
     },
 
@@ -310,7 +358,10 @@ export const bookingService = {
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
     }
 };
 
@@ -328,7 +379,10 @@ export const budgetService = {
       `)
             .order('budget_date', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return data.map(adapters.budget.toApp);
     },
 
@@ -398,7 +452,10 @@ export const budgetService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
 
         // Atualizar itens se fornecidos (complexo, ideal deletar e recriar ou update individual)
         // Para simplificar, assumimos que itens são atualizados separadamente ou recriados
@@ -412,7 +469,10 @@ export const budgetService = {
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
     }
 };
 
@@ -427,7 +487,10 @@ export const transactionService = {
             .select('*')
             .order('transaction_date', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return data.map(adapters.transaction.toApp);
     },
 
@@ -448,7 +511,10 @@ export const transactionService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.transaction.toApp(data);
     },
 
@@ -469,7 +535,10 @@ export const transactionService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.transaction.toApp(data);
     },
 
@@ -479,7 +548,10 @@ export const transactionService = {
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
     }
 };
 
@@ -495,7 +567,10 @@ export const tourService = {
             .eq('active', true)
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return data.map(adapters.tour.toApp);
     },
 
@@ -517,7 +592,10 @@ export const tourService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.tour.toApp(data);
     },
 
@@ -529,7 +607,10 @@ export const tourService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.tour.toApp(data);
     },
 
@@ -539,7 +620,10 @@ export const tourService = {
             .update({ active: false })
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
     }
 };
 
@@ -554,7 +638,10 @@ export const taskService = {
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return data.map(adapters.task.toApp);
     },
 
@@ -574,7 +661,10 @@ export const taskService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.task.toApp(data);
     },
 
@@ -594,7 +684,10 @@ export const taskService = {
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+        }
         return adapters.task.toApp(data);
     },
 

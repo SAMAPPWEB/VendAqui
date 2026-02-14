@@ -401,9 +401,14 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
               <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">
                 {editingBudget ? 'Editar Orçamento' : 'Novo Orçamento'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="p-3 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-colors">
-                <X size={24} weight="bold" />
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-100 rounded-full text-[9px] font-black text-gray-500 uppercase tracking-widest hover:bg-gray-200 transition-colors">
+                  Retornar
+                </button>
+                <button onClick={() => setShowModal(false)} className="p-3 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-colors">
+                  <X size={24} weight="bold" />
+                </button>
+              </div>
             </div>
 
             <form id="budgetForm" onSubmit={handleSave} className="flex-1 overflow-y-auto no-scrollbar p-8 space-y-8">

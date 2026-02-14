@@ -4,7 +4,7 @@
 -- ============================================
 
 -- 1. DESENVOLVEDOR (Samar)
--- Usuário: samar (ou samapps.web@gmail.com)
+-- Usuário: Samar (ou samapps.web@gmail.com)
 -- Senha: samapp123
 -- Status: ATIVO
 

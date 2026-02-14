@@ -97,7 +97,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
                 <input
                   type="text"
                   className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-orange-500 outline-none transition-all text-gray-900 placeholder-gray-400"
-                  placeholder={loginMode === 'EQUIPE' ? "Desenvolvedor ou e-mail" : "Informe seu nome ou e-mail"}
+                  placeholder={loginMode === 'EQUIPE' ? "Usuário ou e-mail (VER1)" : "Informe seu nome ou e-mail"}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

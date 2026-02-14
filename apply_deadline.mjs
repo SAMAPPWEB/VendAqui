@@ -6,38 +6,45 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function testLogin() {
-    const email = 'a_sergio@icloud.com';
-    const password = 'a_sergio@icloud.com';
+import bcrypt from 'bcryptjs';
 
-    console.log(`--- TESTANDO LOGIN PARA: ${email} ---`);
+async function testIntegratedLogin() {
+    const email = 'a_sergio@icloud.com';
+    const passwordInput = 'a_sergio@icloud.com';
+
+    console.log(`--- TESTANDO LOGIN INTEGRADO ---`);
 
     const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('email', email.trim())
-        .eq('status', 'ATIVO')
+        .eq('email', email)
         .maybeSingle();
 
-    if (error) {
-        console.error('Erro Supabase:', error);
-        return;
-    }
-
     if (!data) {
-        console.log('ERRO: Usuário não encontrado ou INATIVO.');
+        console.log('Usuário não encontrado.');
         return;
     }
 
-    console.log('Usuário encontrado:', data.nome);
-    console.log('Senha no Banco:', `'${data.senha}'`);
-    console.log('Senha digitada:', `'${password}'`);
+    console.log('Usuário:', data.nome);
+    console.log('Hash no Banco:', data.senha);
 
-    if (data.senha === password) {
-        console.log('✅ SUCESSO: As senhas coincidem exatamente.');
+    // Exata lógica do authService.ts
+    const isMatch = await bcrypt.compare(passwordInput, data.senha).catch((err) => {
+        console.error('Erro no bcrypt.compare:', err);
+        return false;
+    });
+
+    console.log('Bcrypt Match:', isMatch);
+
+    // Fallback
+    const isFallbackMatch = (!isMatch && data.senha === passwordInput);
+    console.log('Fallback Match:', isFallbackMatch);
+
+    if (isMatch || isFallbackMatch) {
+        console.log('✅ LOGIN SUCESSO NO SCRIPT');
     } else {
-        console.log('❌ ERRO: As senhas NÃO coincidem.');
+        console.log('❌ LOGIN FALHA NO SCRIPT');
     }
 }
 
-testLogin();
+testIntegratedLogin();

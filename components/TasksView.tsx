@@ -156,9 +156,14 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, onUpdateTasks }) => {
           <div className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-[40px] flex flex-col max-h-[92vh] animate-slide shadow-2xl overflow-hidden relative border-t-8 border-orange-500">
             <div className="px-8 pt-8 pb-4 flex justify-between items-center border-b border-gray-100 flex-shrink-0">
               <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter leading-none">Nova Tarefa</h3>
-              <button onClick={() => setShowAdd(false)} className="p-3 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-colors cursor-pointer">
-                <X size={24} weight="bold" />
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => setShowAdd(false)} className="px-4 py-2 bg-gray-100 rounded-full text-[9px] font-black text-gray-500 uppercase tracking-widest hover:bg-gray-200 transition-colors cursor-pointer">
+                  Retornar
+                </button>
+                <button onClick={() => setShowAdd(false)} className="p-3 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-colors cursor-pointer">
+                  <X size={24} weight="bold" />
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleSaveTask} className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar">

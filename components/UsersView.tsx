@@ -153,9 +153,14 @@ const UsersView: React.FC<UsersViewProps> = ({ users, onUpdateUsers }) => {
               <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter leading-none">
                 {editingUser ? "Editar Membro" : "Novo Colaborador"}
               </h3>
-              <button onClick={() => setShowModal(false)} className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-colors cursor-pointer">
-                <X size={24} weight="bold" />
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-100 rounded-full text-[9px] font-black text-gray-500 uppercase tracking-widest hover:bg-gray-200 transition-colors cursor-pointer">
+                  Retornar
+                </button>
+                <button onClick={() => setShowModal(false)} className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-colors cursor-pointer">
+                  <X size={24} weight="bold" />
+                </button>
+              </div>
             </div>
 
             <form id="userForm" onSubmit={handleSave} className="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar">

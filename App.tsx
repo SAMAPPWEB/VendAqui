@@ -301,8 +301,9 @@ const App: React.FC = () => {
                 <DesktopNavBtn active={currentView === 'BUDGETS'} onClick={() => setCurrentView('BUDGETS')} icon={<Receipt size={20} />} label="Orçamentos" color={whiteLabel.primaryColor} />
                 {(isAdmin || isDeveloper) && <DesktopNavBtn active={currentView === 'FINANCIAL'} onClick={() => setCurrentView('FINANCIAL')} icon={<Wallet size={20} />} label="Finanças" color={whiteLabel.primaryColor} />}
                 <DesktopNavBtn active={currentView === 'CLIENTS'} onClick={() => setCurrentView('CLIENTS')} icon={<UsersIcon size={20} />} label="Clientes" color={whiteLabel.primaryColor} />
-                <DesktopNavBtn active={currentView === 'USERS'} onClick={() => setCurrentView('USERS')} icon={<IdentificationBadge size={20} />} label="Equipe" color={whiteLabel.primaryColor} />
                 <DesktopNavBtn active={currentView === 'TOURS'} onClick={() => setCurrentView('TOURS')} icon={<MapTrifold size={20} />} label="Passeios" color={whiteLabel.primaryColor} />
+                <DesktopNavBtn active={currentView === 'TASKS'} onClick={() => setCurrentView('TASKS')} icon={<IdentificationBadge size={20} />} label="Tarefas" color={whiteLabel.primaryColor} />
+                <DesktopNavBtn active={currentView === 'SETTINGS'} onClick={() => setCurrentView('SETTINGS')} icon={<Gear size={20} />} label="Configuração" color={whiteLabel.primaryColor} />
               </nav>
             </div>
           </aside>
@@ -321,8 +322,9 @@ const App: React.FC = () => {
             <NavBtn active={currentView === 'BUDGETS'} onClick={() => setCurrentView('BUDGETS')} icon={<Receipt size={20} />} label="Orçamentos" color={whiteLabel.primaryColor} />
             {(isAdmin || isDeveloper) && <NavBtn active={currentView === 'FINANCIAL'} onClick={() => setCurrentView('FINANCIAL')} icon={<Wallet size={20} />} label="Finanças" color={whiteLabel.primaryColor} />}
             <NavBtn active={currentView === 'CLIENTS'} onClick={() => setCurrentView('CLIENTS')} icon={<UsersIcon size={20} />} label="Clientes" color={whiteLabel.primaryColor} />
-            <NavBtn active={currentView === 'USERS'} onClick={() => setCurrentView('USERS')} icon={<IdentificationBadge size={20} />} label="Equipe" color={whiteLabel.primaryColor} />
             <NavBtn active={currentView === 'TOURS'} onClick={() => setCurrentView('TOURS')} icon={<MapTrifold size={20} />} label="Passeios" color={whiteLabel.primaryColor} />
+            <NavBtn active={currentView === 'TASKS'} onClick={() => setCurrentView('TASKS')} icon={<IdentificationBadge size={20} />} label="Tarefas" color={whiteLabel.primaryColor} />
+            <NavBtn active={currentView === 'SETTINGS'} onClick={() => setCurrentView('SETTINGS')} icon={<Gear size={20} />} label="Config" color={whiteLabel.primaryColor} />
           </nav>
         </div>
       )}

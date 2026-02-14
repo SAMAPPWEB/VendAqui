@@ -70,14 +70,6 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
           <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1">
             {isForgotPassword ? "Portal de Recuperação" : "Passeios privativos - CRM"}
           </p>
-          <div className={`inline-block mt-2 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-tighter ${isSupabaseConfigured ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
-            {isSupabaseConfigured ? `🟢 Conexão OK (${maskedSupabaseUrl})` : '🔴 Configuração Ausente'}
-          </div>
-          {maskedSupabaseUrl.toLowerCase().includes('.com') && (
-            <div className="mt-2 text-[10px] text-red-500 font-bold bg-red-50 p-2 rounded-lg border border-red-100">
-              ⚠️ ATENÇÃO: A URL parece terminar em .COM, mas o Supabase usa .CO
-            </div>
-          )}
         </div>
 
         <div className="flex bg-gray-50 p-1 rounded-2xl mb-8 border border-gray-100">
@@ -106,7 +98,7 @@ const AuthView: React.FC<AuthViewProps> = ({ onLogin }) => {
                 <input
                   type="text"
                   className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 pl-12 pr-4 text-sm focus:border-orange-500 outline-none transition-all text-gray-900 placeholder-gray-400"
-                  placeholder={loginMode === 'EQUIPE' ? "Usuário ou e-mail (VER6)" : "Informe seu nome ou e-mail"}
+                  placeholder={loginMode === 'EQUIPE' ? "Usuário ou e-mail" : "Informe seu nome ou e-mail"}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

@@ -1,0 +1,34 @@
+[
+  {
+    "prompt": "a giant futuristic space ship, in outer space, sci-fi",
+    "image": "https://www.gstatic.com/aistudio/starter-apps/gentype-mini/space.png"},
+  {
+    "prompt": "silver plumbing pipes, against a white brick wall",
+    "image": "https://www.gstatic.com/aistudio/starter-apps/gentype-mini/pipe.png"
+  },
+  {
+    "prompt": "ice sculpture, on a black cylinder stand, in front of a red curtain",
+    "image": "https://www.gstatic.com/aistudio/starter-apps/gentype-mini/ice.png"
+  },
+  {
+    "prompt": "grape jelly, on toast that's sitting on a plate, photoreal, aerial shot",
+    "image": "https://www.gstatic.com/aistudio/starter-apps/gentype-mini/toast.png"
+  },
+  {
+    "prompt": "pile of laundry, on white wood floor, aerial photo",
+    "image": "https://www.gstatic.com/aistudio/starter-apps/gentype-mini/laundry.png"
+  },
+  {
+    "prompt": "fireflies, inside a mason jar, at night, photoreal",
+    "image": "https://www.gstatic.com/aistudio/starter-apps/gentype-mini/fireflies.png"
+
+  },
+  {
+    "prompt": "a simple carving of the letter shape, in a pumpkin, at dusk",
+    "image": "https://www.gstatic.com/aistudio/starter-apps/gentype-mini/pumpkin.png"
+  },
+  {
+    "prompt": "a single-file line of ladybugs, on a leaf, macro aerial photograph",
+    "image": "https://www.gstatic.com/aistudio/starter-apps/gentype-mini/ladybug.png"
+  }
+]

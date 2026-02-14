@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #F97316;
+  --color-secondary: #191919;
+  --color-bg: #F3F4F6;
+  --color-surface: #FFFFFF;
+}
+
+@layer base {
+  body {
+    @apply bg-[#F3F4F6] text-[#111827] antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-black tracking-tight text-[#191919];
+  }
+}
+
+@layer components {
+  /* Containers Padronizados */
+  .container-main {
+    @apply max-w-[1280px] mx-auto px-6 w-full;
+  }
+
+  /* Boxes e Cards Padronizados */
+  .box-card {
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-5 transition-all duration-300;
+  }
+
+  .box-card:hover {
+    @apply shadow-md border-orange-100;
+  }
+
+  /* Botões Padronizados */
+  .btn-primary {
+    @apply bg-[#F97316] text-white font-bold py-2.5 px-4 rounded-xl hover:bg-[#EA580C] active:scale-95 transition-all shadow-sm shadow-orange-200 flex items-center justify-center gap-2;
+  }
+
+  .btn-secondary {
+    @apply bg-[#191919] text-white font-bold py-2.5 px-4 rounded-xl hover:bg-gray-800 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-[#191919] font-medium py-2 px-4 rounded-xl hover:bg-gray-100 active:scale-95 transition-all flex items-center justify-center gap-2;
+  }
+  
+  /* Inputs Padronizados */
+  .input-field {
+    @apply w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#F97316] focus:ring-2 focus:ring-[#F97316]/20 outline-none transition-all placeholder:text-gray-400 bg-gray-50/50 focus:bg-white;
+  }
+}

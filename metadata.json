@@ -1,0 +1,8 @@
+{
+  "name": "AGENDAQUI",
+  "description": "Passeios privativos - CRM",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "prompt": ""
+}

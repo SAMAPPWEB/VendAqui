@@ -3,22 +3,21 @@
 -- Mantenha este arquivo seguro e fora do controle de versão público
 -- ============================================
 
--- Atualizar senha do administrador padrão
--- Substitua 'SUA_SENHA_FORTE_AQUI' pelo hash da senha desejada
--- Usuário: Desenvolvedor
--- Credenciais do desenvolvedor (Samar) - JÁ CRIADO NO BANCO
--- Usuário: Samar (ou samapps.web@gmail.com)
+-- 1. DESENVOLVEDOR (Samar)
+-- Usuário: samar (ou samapps.web@gmail.com)
 -- Senha: samapp123
--- Role: DESENVOLVEDOR (Acesso Total)
 -- Status: ATIVO
 
-/* 
--- Para restaurar caso deletado:
-INSERT INTO users (nome, email, senha, role, status)
-VALUES ('Samar', 'samapps.web@gmail.com', 'samapp123', 'DESENVOLVEDOR', 'ATIVO');
-*/
--- Exemplo para definir senha de cliente
--- UPDATE clients SET senha_portal = 'HASH_DA_SENHA' WHERE email = 'cliente@exemplo.com';
+-- 2. ADMIN (Antonio Sérgio)
+-- Usuário: a_sergio@icloud.com
+-- Senha: a_sergio@icloud.com
+-- Status: ATIVO
+-- PRAZO DE ACESSO: 21/02/2026 às 23:59 (Trava aplicada via código)
 
--- NOTA: Recomenda-se usar bcrypt para gerar os hashes antes de inserir no banco
--- O sistema deve tratar a verificação de hash na aplicação
+-- 3. OPERADOR (Fernanda Berlt)
+-- Usuário: feberlt@gmail.com
+-- Senha: (Verificar no Supabase ou redefinir via painel)
+-- Status: ATIVO
+
+-- NOTA: As senhas de usuários e clientes são armazenadas no banco Supabase.
+-- Use o painel administrativo "Usuários" no sistema live para gerenciar.

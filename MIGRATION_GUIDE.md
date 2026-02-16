@@ -121,7 +121,7 @@ Se encontrar problemas:
 
 ## 🎯 Estrutura do Banco de Dados
 
-```
+```text
 AGENDAQUI Database
 ├── users (Usuários do sistema)
 ├── clients (Clientes/Leads)

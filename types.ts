@@ -60,7 +60,7 @@ export interface Booking {
 export interface BudgetItem {
   id: string;
   description: string;
-  pax: number;
+  pax: { adl: number, chd: number, free: number };
   unitPrice: string;
   total: string;
 }

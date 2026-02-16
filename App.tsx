@@ -356,7 +356,7 @@ const App: React.FC = () => {
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-4">Menu Principal</p>
               <nav className="flex flex-col gap-1">
                 <DesktopNavBtn active={currentView === 'DASHBOARD'} onClick={() => setCurrentView('DASHBOARD')} icon={<House size={20} />} label="Início" color={whiteLabel.primaryColor} />
-                <DesktopNavBtn active={currentView === 'BOOKINGS'} onClick={() => setCurrentView('BOOKINGS')} icon={<CalendarCheck size={20} />} label="Agenda" color={whiteLabel.primaryColor} />
+                <DesktopNavBtn active={currentView === 'BOOKINGS'} onClick={() => setCurrentView('BOOKINGS')} icon={<CalendarCheck size={20} />} label="Agendamentos" color={whiteLabel.primaryColor} />
                 <DesktopNavBtn active={currentView === 'BUDGETS'} onClick={() => setCurrentView('BUDGETS')} icon={<Receipt size={20} />} label="Orçamentos" color={whiteLabel.primaryColor} />
                 <DesktopNavBtn
                   active={currentView === 'FINANCIAL'}
@@ -389,7 +389,7 @@ const App: React.FC = () => {
         <div className="fixed bottom-8 left-0 right-0 px-6 z-[80] pointer-events-none lg:hidden">
           <nav className="glass-nav h-16 rounded-full flex justify-around items-center px-4 shadow-2xl pointer-events-auto max-w-[600px] mx-auto border border-white/50 bg-white/70 backdrop-blur-md overflow-x-auto no-scrollbar">
             <NavBtn active={currentView === 'DASHBOARD'} onClick={() => setCurrentView('DASHBOARD')} icon={<House size={20} />} label="Início" color={whiteLabel.primaryColor} />
-            <NavBtn active={currentView === 'BOOKINGS'} onClick={() => setCurrentView('BOOKINGS')} icon={<CalendarCheck size={20} />} label="Agenda" color={whiteLabel.primaryColor} />
+            <NavBtn active={currentView === 'BOOKINGS'} onClick={() => setCurrentView('BOOKINGS')} icon={<CalendarCheck size={20} />} label="Agendamentos" color={whiteLabel.primaryColor} />
             <NavBtn active={currentView === 'BUDGETS'} onClick={() => setCurrentView('BUDGETS')} icon={<Receipt size={20} />} label="Orçamentos" color={whiteLabel.primaryColor} />
             <NavBtn
               active={currentView === 'FINANCIAL'}

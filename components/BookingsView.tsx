@@ -298,8 +298,14 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     doc.text("VOUCHER DE SERVIÇO", 32, 16);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    // Show ID/Booking Number
-    const bookingIdDisplay = b.bookingNumber || `#${b.id}`;
+    // Show ID/Booking Number - Cleaner Layout
+    const rawId = b.bookingNumber || String(b.id);
+    // If it's a long UUID, take start/end or rely on bookingNumber being pre-formatted. 
+    // User requested "Agend.0001". If rawId is uuid, use short hash.
+    const bookingIdDisplay = rawId.length > 20 && !rawId.includes("Agend")
+      ? `#${rawId.slice(0, 8)}`
+      : rawId.replace("#", "");
+
     doc.text(`CÓDIGO: ${bookingIdDisplay} | EMISSÃO: ${new Date().toLocaleDateString('pt-BR')}`, width - 10, 15, { align: "right" });
 
     // --- DADOS DA EMPRESA (LEFT) ---
@@ -352,10 +358,9 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     doc.setFont("helvetica", "bold");
     doc.setFontSize(bodyFontSize - 1);
     doc.text("DESCRIÇÃO DO SERVIÇO", 15, yPos + 5);
-    doc.text("DATA", 130, yPos + 5);
-    doc.text("PAX (ADL/CHD/FREE)", 160, yPos + 5, { align: "center" });
-    doc.text("DATA", 125, yPos + 5); // Moved left from 130
-    doc.text("PAX", 160, yPos + 5, { align: "center" });
+    // Adjusted coordinates to prevent overlap: Date at 100, Pax at 155
+    doc.text("DATA", 100, yPos + 5);
+    doc.text("PAX", 155, yPos + 5, { align: "center" });
     doc.text("TOTAL", width - 15, yPos + 5, { align: "right" });
 
     yPos += 11;
@@ -363,19 +368,20 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
 
     // Service Name
     doc.text(b.tour, 15, yPos);
-    // Date
-    doc.text(formatDateLong(b.date), 125, yPos); // Moved left from 130
+    // Date - Long format
+    doc.text(formatDateLong(b.date), 100, yPos);
 
     // Pax Breakdown
     const paxStr = typeof b.pax === 'object'
-      ? `${b.pax.adl || 0} ADL | ${b.pax.chd || 0} CHD`
+      ? `${b.pax.adl || 0} ADL | ${b.pax.chd || 0} CHD | ${b.pax.free || 0} FREE`
       : `${b.pax}`;
-    doc.text(paxStr, 160, yPos, { align: "center" });
+    doc.text(paxStr, 155, yPos, { align: "center" });
 
     // Total Value
     // Ensure BRL format
     const val = parseFloat(b.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-    doc.text(val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), width - 15, yPos, { align: "right" });
+    const valFormatted = val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    doc.text(valFormatted, width - 15, yPos, { align: "right" });
 
     // --- NO FOOTER PAYMENT INFO (As requested for Confirmation Voucher) ---
     // User asked to remove Pix/QR and Payment methods from valid confirmation voucher.
@@ -389,7 +395,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     doc.text("VALOR TOTAL:", width - 65, yPos + 6.5);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(`R$ ${b.price}`, width - 15, yPos + 6.5, { align: "right" });
+    doc.text(valFormatted, width - 15, yPos + 6.5, { align: "right" });
 
     doc.save(`Voucher_${b.client}_${bookingIdDisplay}.pdf`);
   };

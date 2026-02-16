@@ -104,7 +104,11 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     }
   };
 
+  // const [validUntil, setValidUntil] ... (already in state)
+  const [budgetStatus, setBudgetStatus] = useState<'PENDENTE' | 'ENVIADO' | 'APROVADO' | 'CANCELADO'>('PENDENTE');
+
   const handleSave = async (e: React.FormEvent) => {
+    // ... (Validation logic remains)
     e.preventDefault();
     if (!clientName.trim()) {
       alert("Informe o nome do cliente.");
@@ -114,12 +118,11 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     const upperName = clientName.trim().toUpperCase();
     const upperWhatsapp = clientWhatsapp.trim().toUpperCase();
 
-
     // Persistência: Cliente (se novo)
     let finalClientId = selectedClientId;
-
-    // Se for client rápido (QuickAdd), cria no banco
+    // ... (Quick add client logic remains)
     if (isQuickAdd && !clients.find(c => c.nome.toUpperCase() === upperName)) {
+      // ...
       try {
         const newClient = await clientService.create({
           nome: upperName,
@@ -131,7 +134,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
           status: 'ATIVO'
         });
         onUpdateClients([newClient, ...clients]);
-        finalClientId = newClient.id; // Usa o ID gerado pelo banco
+        finalClientId = newClient.id;
       } catch (err) {
         alert("Erro ao criar cliente rápido. Tente novamente.");
         return;
@@ -139,10 +142,8 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     }
 
     try {
-      // Objeto base para envio.
       const today = new Date();
       const formattedToday = today.toLocaleDateString('pt-BR');
-
       let formattedValidUntil = validUntil;
       if (!formattedValidUntil) {
         const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -158,7 +159,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
         items: items,
         totalAmount: totalAmount,
         notes: notes,
-        status: editingBudget?.status || 'PENDENTE'
+        status: budgetStatus // Use local status state
       };
 
       if (editingBudget) {
@@ -168,12 +169,11 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
         const created = await budgetService.create(budgetPayload);
         setBudgets([created, ...budgets]);
       }
-
       setShowModal(false);
       resetForm();
     } catch (error) {
       console.error("Erro ao salvar orçamento:", error);
-      alert("Erro ao salvar orçamento. Verifique o console.");
+      alert("Erro ao salvar orçamento.");
     }
   };
 
@@ -187,6 +187,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     setNotes("");
     setItems([{ id: '1', description: '', pax: 1, unitPrice: '', total: '' }]);
     setHotelSearch("");
+    setBudgetStatus('PENDENTE');
   };
 
   const openEdit = (b: Budget) => {
@@ -203,6 +204,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     setValidUntil(b.validUntil);
     setNotes(b.notes);
     setItems(b.items);
+    setBudgetStatus(b.status as any || 'PENDENTE');
     setShowModal(true);
   };
 
@@ -218,7 +220,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     const height = 110;
     const bodyFontSize = 10;
 
-    // --- PÁGINA 1: CABEÇALHO E ITENS ---
+    // --- PÁGINA 1: CABEÇALHO ---
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, width, height, "F");
     doc.setFillColor(31, 41, 55);
@@ -233,11 +235,12 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
     doc.setTextColor(255, 255, 255);
-    doc.text("VOUCHER DE SERVIÇO", 32, 16);
+    doc.text("PROPOSTA DE SERVIÇO / PASSEIO", 32, 16); // Title updated
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text(`CÓDIGO: #${b.budgetNumber} | EMISSÃO: ${b.date}`, width - 10, 15, { align: "right" });
+    doc.text(`Nº PROPOSTA: #${b.budgetNumber} | DATA: ${b.date}`, width - 10, 15, { align: "right" });
 
+    // --- DADOS DA EMPRESA (LEFT) ---
     let yPos = 35;
     doc.setTextColor(31, 41, 55);
     doc.setFontSize(bodyFontSize);
@@ -245,24 +248,34 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     doc.text("DADOS DA EMPRESA", 10, yPos);
     doc.setFont("helvetica", "normal");
     yPos += 5;
-    doc.text(`${config.instanceName}`, 10, yPos);
-    yPos += 4.5;
-    doc.text(`CNPJ: ${config.cnpj || "N/A"} | CADASTUR: ${config.cadastur || "N/A"}`, 10, yPos);
-    yPos += 4.5;
-    doc.text(`ENDEREÇO: ${config.address || "N/A"}`, 10, yPos);
 
+    // Auto-wrap company name
+    const companyName = doc.splitTextToSize(config.instanceName, 90);
+    doc.text(companyName, 10, yPos);
+    yPos += (companyName.length * 4.5);
+
+    const docs = `CNPJ: ${config.cnpj || "N/A"} | CADASTUR: ${config.cadastur || "N/A"}`;
+    doc.text(docs, 10, yPos);
+    yPos += 4.5;
+
+    const address = doc.splitTextToSize(`ENDEREÇO: ${config.address || "N/A"}`, 90);
+    doc.text(address, 10, yPos);
+
+    // --- CLIENTE & OPERAÇÃO (RIGHT) ---
+    const rightColX = 110;
     yPos = 35;
     doc.setFontSize(bodyFontSize);
     doc.setFont("helvetica", "bold");
-    doc.text("CLIENTE & OPERAÇÃO", width / 2 + 10, yPos);
+    doc.text("CLIENTE & OPERAÇÃO", rightColX, yPos);
     doc.setFont("helvetica", "normal");
     yPos += 5;
-    doc.text(`NOME: ${b.clientName}`, width / 2 + 10, yPos);
+    doc.text(`NOME: ${b.clientName}`, rightColX, yPos);
     yPos += 4.5;
-    doc.text(`WHATSAPP: ${b.clientWhatsapp}`, width / 2 + 10, yPos);
+    doc.text(`WHATSAPP: ${b.clientWhatsapp}`, rightColX, yPos);
     yPos += 4.5;
-    doc.text(`OPERADOR: ${user.nome}`, width / 2 + 10, yPos);
+    doc.text(`OPERADOR: ${user.nome}`, rightColX, yPos);
 
+    // --- ITENS ---
     yPos = 65;
     doc.setFillColor(243, 244, 246);
     doc.rect(10, yPos, width - 20, 7, "F");
@@ -281,10 +294,10 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
       yPos += 6;
     });
 
-    // --- RODAPÉ PÁGINA 1: PIX COM QR CODE DINÂMICO ---
+    // --- QR CODE & PIX (Kept for Proposal as per request "Igual ao Voucher") ---
     if (config.pixKey) {
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(config.pixKey)}`;
-      doc.addImage(qrUrl, 'PNG', 10, height - 28, 18, 18);
+      try { doc.addImage(qrUrl, 'PNG', 10, height - 28, 18, 18); } catch (e) { }
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.text("PAGAMENTO VIA PIX:", 30, height - 20);
@@ -297,13 +310,15 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     doc.rect(width - 70, yPos, 60, 10, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
-    doc.text("TOTAL:", width - 65, yPos + 6.5);
+    doc.text("TOTAL DA PROPOSTA:", width - 65, yPos + 6.5);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.text(`R$ ${b.totalAmount}`, width - 15, yPos + 6.5, { align: "right" });
 
-    // --- PÁGINA 2: POLÍTICA E REDES SOCIAIS DINÂMICAS ---
+    // Page 2 (Terms) remains same...
     doc.addPage([215, 110], "landscape");
+    // ... (rest of PDF generation) ...
+    // Re-implementing standard page 2 elements briefly to ensure completeness if we replaced the whole function
     doc.setFillColor(31, 41, 55);
     doc.rect(0, 0, width, height, "F");
     doc.setFillColor(primaryColor);
@@ -333,7 +348,6 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
       termsY += (splitText.length * 4.5) + 5;
     });
 
-    // --- RODAPÉ PÁGINA 2: BARRA SOCIAL ---
     doc.setFillColor(primaryColor);
     doc.rect(0, height - 10, width, 10, "F");
     doc.setTextColor(255, 255, 255);
@@ -349,7 +363,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
       doc.text(footerParts.join("  |  "), width / 2, height - 4, { align: "center" });
     }
 
-    doc.save(`Voucher_${b.budgetNumber}.pdf`);
+    doc.save(`Proposta_${b.budgetNumber}.pdf`);
   };
 
   const filteredBudgets = budgets.filter(b => b.clientName.toLowerCase().includes(search.toLowerCase()) || b.budgetNumber.includes(search));
@@ -473,9 +487,21 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-[11px] font-black text-orange-600 uppercase tracking-widest">Itens da Proposta</span>
-                  <button type="button" onClick={addNewItem} className="flex items-center gap-1 text-[10px] font-black text-white bg-gray-900 px-4 py-2 rounded-xl active:scale-95 transition-all">
-                    Adicionar Item
-                  </button>
+                  <div className="flex gap-2">
+                    <select
+                      value={budgetStatus}
+                      onChange={(e) => setBudgetStatus(e.target.value as any)}
+                      className="bg-gray-100/50 border border-gray-200 text-[10px] font-black uppercase rounded-xl px-3 py-2 outline-none"
+                    >
+                      <option value="PENDENTE">Pendente</option>
+                      <option value="ENVIADO">Enviado</option>
+                      <option value="APROVADO">Aprovado</option>
+                      <option value="CANCELADO">Cancelado</option>
+                    </select>
+                    <button type="button" onClick={addNewItem} className="flex items-center gap-1 text-[10px] font-black text-white bg-gray-900 px-4 py-2 rounded-xl active:scale-95 transition-all">
+                      Adicionar Item
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-4">

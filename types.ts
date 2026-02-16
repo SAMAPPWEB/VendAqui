@@ -39,11 +39,13 @@ export interface Client {
 
 export interface Booking {
   id: string | number;
+  bookingNumber?: string; // Sequential ID (e.g., #Agend.0001)
   clientId: string;
   client: string;
   whatsapp: string;
   tour: string;
   date: string;
+  time?: string; // Added for conflict detection
   pax: { adl: number, chd: number, free: number };
   price: string;
   status: 'PENDENTE' | 'CONFIRMADO' | 'CANCELADO';
@@ -73,7 +75,7 @@ export interface Budget {
   items: BudgetItem[];
   totalAmount: string;
   notes: string;
-  status: 'PENDENTE' | 'APROVADO' | 'REJEITADO' | 'VENCIDO';
+  status: 'PENDENTE' | 'ENVIADO' | 'APROVADO' | 'CANCELADO' | 'VENCIDO' | 'REJEITADO';
   createdAt?: string;
   updatedAt?: string;
 }

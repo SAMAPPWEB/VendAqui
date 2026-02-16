@@ -195,7 +195,11 @@ const App: React.FC = () => {
 
     const formatTime = (d: string | Date) => {
       const date = new Date(d);
-      return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      // Format: Segunda-feira, 31/12/2024 14:30:45
+      const weekday = date.toLocaleDateString('pt-BR', { weekday: 'long' });
+      const fullDate = date.toLocaleDateString('pt-BR');
+      const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      return `${weekday}, ${fullDate} ${time}`;
     };
 
     bookings.forEach(b => {

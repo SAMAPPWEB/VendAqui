@@ -23,6 +23,22 @@ const ToursView: React.FC<ToursViewProps> = ({ tours, onUpdateTours }) => {
     return "R$ " + amount.replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
 
+  const formatPrice = (value: string) => {
+    if (!value) return "R$ 0,00";
+    if (value.startsWith("R$")) return value;
+
+    // Se tiver ponto ou vírgula, assume que já tem separação de centavos (ex: 1300.00)
+    // Se for inteiro puro (ex: 1300), adiciona 00 para o formatCurrency tratá-lo corretamente
+    let clean = value.replace(/\D/g, "");
+    if (!value.includes('.') && !value.includes(',')) {
+      clean += "00";
+    }
+
+    // Reusa a lógica de visualização
+    const amount = (parseInt(clean) / 100).toFixed(2);
+    return "R$ " + amount.replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+
   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     e.target.value = formatCurrency(value);
@@ -144,7 +160,7 @@ const ToursView: React.FC<ToursViewProps> = ({ tours, onUpdateTours }) => {
                   <div className="flex flex-col">
                     <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Valor do Passeio</span>
                     <p className="text-2xl font-black text-gray-900 tracking-tighter">
-                      {tour.price.startsWith('R$') ? tour.price : formatCurrency(tour.price.replace(/\D/g, ''))}
+                      {formatPrice(tour.price)}
                     </p>
                   </div>
                 </div>
@@ -192,7 +208,7 @@ const ToursView: React.FC<ToursViewProps> = ({ tours, onUpdateTours }) => {
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Preço (R$)</label>
                     <input
                       name="price"
-                      defaultValue={editingTour?.price ? (editingTour.price.startsWith('R$') ? editingTour.price : formatCurrency(editingTour.price.replace(/\D/g, ''))) : ""}
+                      defaultValue={editingTour ? formatPrice(editingTour.price) : ""}
                       required
                       onChange={handlePriceChange}
                       placeholder="R$ 0,00"

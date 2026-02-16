@@ -86,6 +86,41 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
       alert("Preencha o passeio, data e preço.");
       return;
     }
+
+    // --- CHECK RETROACTIVE (No Past Dates) ---
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // Create date from string yyyy-mm-dd to avoid timezone issues
+    const [y, m, d] = dateValue.split('-').map(Number);
+    const selectedDate = new Date(y, m - 1, d);
+
+    if (selectedDate < today) {
+      alert("ERRO: Não é permitido agendar para data retroativa.");
+      return;
+    }
+
+    // --- CHECK CONFLICT (Duplicate Tour on Same Day for Client) ---
+    // Exception: tours containing "BY NIGHT" (case insensitive)
+    if (clientName) {
+      const isConflict = bookings.some(b =>
+        b.client.toUpperCase() === clientName.toUpperCase() &&
+        b.date === dateValue &&
+        b.status !== 'CANCELADO' &&
+        !b.tour.toUpperCase().includes("BY NIGHT") &&
+        !tourValue.toUpperCase().includes("BY NIGHT")
+      );
+      // Also check cart items?
+      const isCartConflict = cart.some(c =>
+        c.date === dateValue &&
+        !c.tour.includes("BY NIGHT") &&
+        !tourValue.toUpperCase().includes("BY NIGHT")
+      );
+
+      if (isConflict || isCartConflict) {
+        alert("ALERTA DE CONFLITO: Este cliente já possui um passeio para esta data (Regra: 1 passeio/dia, exceto By Night).");
+        return;
+      }
+    }
     const newItem: CartItem = {
       id: Date.now().toString(),
       tour: tourValue.toUpperCase(),

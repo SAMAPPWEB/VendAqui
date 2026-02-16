@@ -276,29 +276,37 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(bodyFontSize - 1);
     doc.text("DESCRIÇÃO DO SERVIÇO", 15, yPos + 5);
-    doc.text("PAX (ADL/CHD/FREE)", width - 70, yPos + 5, { align: "center" });
+    // Removed separate Pax column header to merge with description or keep distinct? 
+    // User asked: "Ex.: Caraíva 04ADL | 01 CHD | 0 FREE Valor R$ 1.300,00."
+    // This implies creating a string like "Description   Pax Info"
     doc.text("TOTAL", width - 15, yPos + 5, { align: "right" });
 
     yPos += 11;
     doc.setFont("helvetica", "normal");
     b.items.forEach((item) => {
-      doc.text(item.description || "PASSEIO", 15, yPos);
       const paxDetails = typeof item.pax === 'object'
-        ? `${item.pax.adl}|${item.pax.chd}|${item.pax.free}`
+        ? `${item.pax.adl} ADL | ${item.pax.chd} CHD | ${item.pax.free} FREE`
         : `${item.pax}`;
-      doc.text(paxDetails, width - 70, yPos, { align: "center" });
+
+      doc.text(`${item.description || "PASSEIO"}`, 15, yPos);
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text(paxDetails, 15, yPos + 4); // Print Pax details below description
+      doc.setFontSize(bodyFontSize);
+      doc.setTextColor(31, 41, 55);
+
       doc.text(`R$ ${item.total}`, width - 15, yPos, { align: "right" });
-      yPos += 6;
+      yPos += 10; // More space for double line
     });
 
     if (config.pixKey) {
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(config.pixKey)}`;
-      try { doc.addImage(qrUrl, 'PNG', 10, height - 28, 18, 18); } catch (e) { }
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(config.pixKey)}`;
+      try { doc.addImage(qrUrl, 'PNG', 10, height - 32, 25, 25); } catch (e) { } // Increased size to 25x25
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
-      doc.text("PAGAMENTO VIA PIX:", 30, height - 20);
+      doc.text("PAGAMENTO VIA PIX:", 38, height - 20); // Adjusted X
       doc.setFont("helvetica", "normal");
-      doc.text(`CHAVE: ${config.pixKey}`, 30, height - 16);
+      doc.text(`CHAVE: ${config.pixKey}`, 38, height - 16);
     }
 
     yPos = height - 15;
@@ -311,9 +319,38 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     doc.setFont("helvetica", "bold");
     doc.text(`R$ ${b.totalAmount}`, width - 15, yPos + 6.5, { align: "right" });
 
-    // Page 2 - keeping simplified for now
+    // Page 2 - Condições Gerais
     doc.addPage([215, 110], "landscape");
-    // ... (Add page 2 content here if needed, keeping it minimal to avoid huge file)
+    doc.setFillColor(31, 41, 55);
+    doc.rect(0, 0, width, 15, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("CONDIÇÕES GERAIS E POLITICA DE CANCELAMENTO", 10, 10);
+
+    doc.setTextColor(31, 41, 55);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    const conditions = [
+      "1. RESERVAS E PAGAMENTO:",
+      "   - A reserva só é garantida mediante comprovante de pagamento.",
+      "   - Pagamento via Pix, transferência ou cartão conforme combinado.",
+      "",
+      "2. CANCELAMENTO E REEMBOLSO:",
+      "   - Cancelamento com até 24h de antecedência: Reembolso integral.",
+      "   - Cancelamento com menos de 24h: Sem reembolso (No-Show).",
+      "   - Em caso de condições climáticas adversas que impeçam o passeio, será agendada nova data ou feito reembolso.",
+      "",
+      "3. RESPONSABILIDADES:",
+      "   - A empresa não se responsabiliza por objetos deixados nos veículos.",
+      "   - Horários de saída devem ser rigorosamente respeitados."
+    ];
+
+    let condY = 25;
+    conditions.forEach(line => {
+      doc.text(line, 10, condY);
+      condY += 5;
+    });
 
     doc.save(`Proposta_${b.budgetNumber}.pdf`);
   };
@@ -349,49 +386,69 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
 
         {/* GRID LAYOUT (Replacing List) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredBudgets.map(b => (
-            <div key={b.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all group relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
-              <div className="pl-3">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-black text-gray-900 uppercase text-sm leading-tight truncate pr-2">{b.clientName}</h3>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 whitespace-nowrap">
-                    Nº {b.budgetNumber}
-                  </span>
-                </div>
+          {filteredBudgets.map(b => {
+            // Calculate Summary Data
+            const totalPax = b.items.reduce((acc, item) => {
+              const p = item.pax;
+              return acc + (p.adl || 0) + (p.chd || 0) + (p.free || 0);
+            }, 0);
+            const tourNames = b.items.map(i => i.description).join(", ");
 
-                <div className="mb-4">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total</p>
-                  <p className="text-lg font-black text-gray-900">R$ {b.totalAmount}</p>
-                  <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full mt-1 inline-block ${b.status === 'APROVADO' ? 'bg-green-100 text-green-600' :
-                    b.status === 'CANCELADO' ? 'bg-red-100 text-red-600' :
-                      b.status === 'ENVIADO' ? 'bg-blue-100 text-blue-600' :
-                        'bg-yellow-100 text-yellow-600'
-                    }`}>
-                    {b.status}
-                  </span>
-                </div>
+            return (
+              <div key={b.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all group relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+                <div className="pl-3">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-black text-gray-900 uppercase text-sm leading-tight truncate pr-2">{b.clientName}</h3>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 whitespace-nowrap">
+                      Nº {b.budgetNumber}
+                    </span>
+                  </div>
 
-                <div className="flex gap-2 mt-auto">
-                  <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-2 rounded-xl flex items-center justify-center gap-2 transition-colors active:scale-95">
-                    <FilePdf size={16} weight="bold" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">PDF</span>
-                  </button>
-                  <button onClick={() => openEdit(b)} className="w-10 h-10 bg-gray-50 text-gray-400 rounded-xl flex items-center justify-center hover:bg-gray-100 hover:text-orange-500 transition-colors">
-                    <PencilSimple size={18} weight="bold" />
-                  </button>
-                  <button onClick={async () => {
-                    if (confirm("Excluir orçamento?")) {
-                      await budgetService.delete(b.id);
-                      setBudgets(budgets.filter(x => x.id !== b.id));
-                    }
-                  }} className="w-10 h-10 bg-red-50 text-red-400 rounded-xl flex items-center justify-center hover:bg-red-100 hover:text-red-500 transition-colors">
-                    <Trash size={18} weight="bold" />
-                  </button>
+                  <div className="mb-4 space-y-2">
+                    <div>
+                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Resumo do Pacote</p>
+                      <p className="text-[10px] font-bold text-gray-700 uppercase line-clamp-2">{tourNames || "Sem itens"}</p>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5">{totalPax} Pax (Total)</p>
+                    </div>
+
+                    <div>
+                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Valor Total</p>
+                      <p className="text-lg font-black text-gray-900">
+                        R$ {b.totalAmount}
+                      </p>
+                    </div>
+
+                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full mt-1 inline-block ${b.status === 'APROVADO' ? 'bg-green-100 text-green-600' :
+                      b.status === 'CANCELADO' ? 'bg-red-100 text-red-600' :
+                        b.status === 'ENVIADO' ? 'bg-blue-100 text-blue-600' :
+                          'bg-yellow-100 text-yellow-600'
+                      }`}>
+                      {b.status}
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2 mt-auto">
+                    <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-2 rounded-xl flex items-center justify-center gap-2 transition-colors active:scale-95">
+                      <FilePdf size={16} weight="bold" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">PDF</span>
+                    </button>
+                    <button onClick={() => openEdit(b)} className="w-10 h-10 bg-gray-50 text-gray-400 rounded-xl flex items-center justify-center hover:bg-gray-100 hover:text-orange-500 transition-colors">
+                      <PencilSimple size={18} weight="bold" />
+                    </button>
+                    <button onClick={async () => {
+                      if (confirm("Excluir orçamento?")) {
+                        await budgetService.delete(b.id);
+                        setBudgets(budgets.filter(x => x.id !== b.id));
+                      }
+                    }} className="w-10 h-10 bg-red-50 text-red-400 rounded-xl flex items-center justify-center hover:bg-red-100 hover:text-red-500 transition-colors">
+                      <Trash size={18} weight="bold" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

@@ -354,6 +354,8 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     doc.text("DESCRIÇÃO DO SERVIÇO", 15, yPos + 5);
     doc.text("DATA", 130, yPos + 5);
     doc.text("PAX (ADL/CHD/FREE)", 160, yPos + 5, { align: "center" });
+    doc.text("DATA", 125, yPos + 5); // Moved left from 130
+    doc.text("PAX", 160, yPos + 5, { align: "center" });
     doc.text("TOTAL", width - 15, yPos + 5, { align: "right" });
 
     yPos += 11;
@@ -362,16 +364,18 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     // Service Name
     doc.text(b.tour, 15, yPos);
     // Date
-    doc.text(formatDateLong(b.date), 130, yPos);
+    doc.text(formatDateLong(b.date), 125, yPos); // Moved left from 130
 
     // Pax Breakdown
     const paxStr = typeof b.pax === 'object'
-      ? `${b.pax.adl} | ${b.pax.chd} | ${b.pax.free}`
-      : `${b.pax} (Total)`;
+      ? `${b.pax.adl || 0} ADL | ${b.pax.chd || 0} CHD`
+      : `${b.pax}`;
     doc.text(paxStr, 160, yPos, { align: "center" });
 
     // Total Value
-    doc.text(`R$ ${b.price}`, width - 15, yPos, { align: "right" });
+    // Ensure BRL format
+    const val = parseFloat(b.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+    doc.text(val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), width - 15, yPos, { align: "right" });
 
     // --- NO FOOTER PAYMENT INFO (As requested for Confirmation Voucher) ---
     // User asked to remove Pix/QR and Payment methods from valid confirmation voucher.
@@ -390,7 +394,11 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     doc.save(`Voucher_${b.client}_${bookingIdDisplay}.pdf`);
   };
 
-  const filteredBookings = bookings.filter(b => b.client.toLowerCase().includes(search.toLowerCase()));
+  const filteredBookings = bookings.filter(b =>
+    b.client.toLowerCase().includes(search.toLowerCase()) ||
+    (b.bookingNumber && b.bookingNumber.toLowerCase().includes(search.toLowerCase())) ||
+    b.whatsapp.includes(search)
+  );
 
   return (
     <div className="px-6 pb-20">
@@ -486,7 +494,8 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                   <div>
                     <div className="mb-1">
                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
-                        {b.bookingNumber || `#${b.id}`}
+                        {/* Format ID as Agend.0001 if not already */}
+                        {b.bookingNumber ? b.bookingNumber.replace("#", "") : `Agend.${String(b.id).padStart(4, '0')}`}
                       </span>
                     </div>
                     <h4 className="font-black text-sm text-gray-900 uppercase leading-none mb-1">{b.client}</h4>

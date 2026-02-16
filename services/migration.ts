@@ -31,13 +31,18 @@ export const migrateLocalStorageToSupabase = async () => {
             const configStr = localStorage.getItem('aq_config');
             if (configStr) {
                 const config = JSON.parse(configStr);
-                // Remover campos que não existem ou adaptar
-                const { instanceName, primaryColor, logo, cnpj, cadastur, address, phone, instagram, site, pixKey } = config;
 
                 await configService.update({
-                    instance_name: instanceName,
-                    primary_color: primaryColor,
-                    logo, cnpj, cadastur, address, phone, instagram, site, pix_key: pixKey
+                    instanceName: config.instanceName || config.instance_name || 'AGENDAQUI',
+                    primaryColor: config.primaryColor || config.primary_color || '#F97316',
+                    logo: config.logo,
+                    cnpj: config.cnpj,
+                    cadastur: config.cadastur,
+                    address: config.address,
+                    phone: config.phone,
+                    instagram: config.instagram,
+                    site: config.site,
+                    pixKey: config.pixKey || config.pix_key
                 });
                 report.config.success++;
                 console.log('✅ Configuração migrada');
@@ -124,10 +129,10 @@ export const migrateLocalStorageToSupabase = async () => {
                         await tourService.create({
                             title: tour.title,
                             image: tour.image,
-                            price: parseFloat(String(tour.price).replace(/[^\d,]/g, '').replace(',', '.')),
+                            price: tour.price,
                             duration: tour.duration,
                             region: tour.region,
-                            rating: parseFloat(tour.rating),
+                            rating: tour.rating,
                             description: tour.description || '',
                             active: true
                         });
@@ -242,8 +247,8 @@ export const migrateLocalStorageToSupabase = async () => {
                         await taskService.create({
                             title: task.title,
                             description: task.description,
-                            assigned_to: null, // Resetar assignment para evitar erro de FK
-                            due_date: task.dueDate,
+                            assignedTo: null, // Resetar assignment para evitar erro de FK
+                            dueDate: task.dueDate,
                             priority: task.priority,
                             status: task.status
                         });

@@ -3,6 +3,12 @@ import { supabase } from './supabase';
 import { adapters } from './adapters';
 import type { User, Client, Booking, Budget, Transaction, WhiteLabelConfig } from '../types';
 
+// Utility for database errors
+const handleDbError = (error: any, context: string) => {
+    console.error(`Database Error [${context}]:`, error);
+    throw new Error(`Erro no banco de dados (${context}): ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
+};
+
 // ============================================
 // CONFIG
 // ============================================
@@ -23,11 +29,11 @@ export const configService = {
     },
 
     async update(updates: Partial<WhiteLabelConfig>) {
-        // Converter updates para snake_case
         const dbUpdates = adapters.config.toDb(updates);
 
-        // Precisamos do ID. Assumindo que só há 1 config, pegamos o primeiro.
-        const { data: current } = await supabase.from('config').select('id').limit(1).single();
+        // Precisamos do ID. Assumindo que só há 1 config.
+        const { data: current, error: currentError } = await supabase.from('config').select('id').limit(1).maybeSingle();
+        if (currentError) handleDbError(currentError, 'config.update.find');
 
         let query;
         if (current) {
@@ -37,11 +43,8 @@ export const configService = {
         }
 
         const { data, error } = await query.select().single();
+        if (error) handleDbError(error, 'config.update.save');
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
         return adapters.config.toApp(data);
     }
 };
@@ -57,10 +60,7 @@ export const userService = {
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'users.getAll');
         return data.map(adapters.user.toApp);
     },
 
@@ -82,10 +82,7 @@ export const userService = {
             .eq('id', id)
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'users.getById');
         return adapters.user.toApp(data);
     },
 
@@ -94,38 +91,34 @@ export const userService = {
             .from('users')
             .select('*')
             .eq('email', email)
-            .single();
+            .maybeSingle();
 
-        if (error) return null;
+        if (error || !data) return null;
         return adapters.user.toApp(data);
     },
 
     async create(user: Omit<User, 'id'>): Promise<User> {
+        const dbUser = adapters.user.toDb(user);
         const { data, error } = await supabase
             .from('users')
-            .insert([user]) // users table match User type mostly
+            .insert([dbUser])
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'users.create');
         return adapters.user.toApp(data);
     },
 
     async update(id: string, updates: Partial<User>): Promise<User> {
+        const dbUpdates = adapters.user.toDb(updates);
         const { data, error } = await supabase
             .from('users')
-            .update(updates)
+            .update(dbUpdates)
             .eq('id', id)
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'users.update');
         return adapters.user.toApp(data);
     },
 
@@ -135,10 +128,7 @@ export const userService = {
             .delete()
             .eq('id', id);
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'users.delete');
     }
 };
 
@@ -153,10 +143,7 @@ export const clientService = {
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'clients.getAll');
         return data.map(adapters.client.toApp);
     },
 
@@ -167,61 +154,32 @@ export const clientService = {
             .eq('id', id)
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'clients.getById');
         return adapters.client.toApp(data);
     },
 
     async create(client: Omit<Client, 'id' | 'historico'>): Promise<Client> {
-        const dbClient = {
-            nome: client.nome,
-            whatsapp: client.whatsapp,
-            email: client.email,
-            endereco: client.endereco,
-            senha_portal: client.senhaPortal,
-            data_ativacao: client.dataAtivacao,
-            status: client.status
-        };
-
+        const dbClient = adapters.client.toDb(client);
         const { data, error } = await supabase
             .from('clients')
             .insert([dbClient])
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'clients.create');
         return adapters.client.toApp(data);
     },
 
     async update(id: string, updates: Partial<Client>): Promise<Client> {
-        const dbUpdates: any = {};
-        if (updates.nome) dbUpdates.nome = updates.nome;
-        if (updates.whatsapp) dbUpdates.whatsapp = updates.whatsapp;
-        if (updates.email) dbUpdates.email = updates.email;
-        if (updates.endereco) dbUpdates.endereco = updates.endereco;
-        if (updates.senhaPortal) dbUpdates.senha_portal = updates.senhaPortal;
-        if (updates.dataAtivacao) dbUpdates.data_ativacao = updates.dataAtivacao;
-        if (updates.status) dbUpdates.status = updates.status;
-
+        const dbUpdates = adapters.client.toDb(updates);
         const { data, error } = await supabase
             .from('clients')
             .update(dbUpdates)
             .eq('id', id)
             .select()
-            .maybeSingle(); // maybeSingle handles cases where RLS might hide the updated record
+            .maybeSingle();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
-
-        // If data is null due to RLS, we at least return what we tried to update 
-        // blended with the ID to not break the UI flow, but ideally RLS is fixed.
+        if (error) handleDbError(error, 'clients.update');
         if (!data) return { id, ...updates } as Client;
 
         return adapters.client.toApp(data);
@@ -233,10 +191,7 @@ export const clientService = {
             .delete()
             .eq('id', id);
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'clients.delete');
     },
 
     async getHistory(clientId: string) {
@@ -246,10 +201,7 @@ export const clientService = {
             .eq('client_id', clientId)
             .order('data', { ascending: false });
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'clients.getHistory');
         return data;
     },
 
@@ -260,10 +212,7 @@ export const clientService = {
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'clients.addHistory');
         return data;
     }
 };
@@ -279,65 +228,24 @@ export const bookingService = {
             .select('*')
             .order('booking_date', { ascending: false });
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'bookings.getAll');
         return data.map(adapters.booking.toApp);
     },
 
     async create(booking: Omit<Booking, 'id'>): Promise<Booking> {
-        const bookingData = {
-            client_id: booking.clientId,
-            // tour_id: null,
-            client_name: booking.client,
-            whatsapp: booking.whatsapp,
-            tour_name: booking.tour,
-            booking_date: booking.date,
-            pax_adults: booking.pax.adl,
-            pax_children: booking.pax.chd,
-            pax_free: booking.pax.free,
-            price: parseFloat(booking.price.replace(/[^\d,]/g, '').replace(',', '.')),
-            status: booking.status,
-            location: booking.location,
-            confirmed: booking.confirmed,
-            observation: booking.observation,
-            payment_method: booking.paymentMethod
-        };
-
+        const dbBooking = adapters.booking.toDb(booking);
         const { data, error } = await supabase
             .from('bookings')
-            .insert([bookingData])
+            .insert([dbBooking])
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'bookings.create');
         return adapters.booking.toApp(data);
     },
 
     async update(id: string, updates: Partial<Booking>): Promise<Booking> {
-        const dbUpdates: any = {};
-        // Mapeamento manual para update parcial
-        if (updates.clientId !== undefined) dbUpdates.client_id = updates.clientId;
-        if (updates.client !== undefined) dbUpdates.client_name = updates.client;
-        if (updates.whatsapp !== undefined) dbUpdates.whatsapp = updates.whatsapp;
-        if (updates.tour !== undefined) dbUpdates.tour_name = updates.tour;
-        if (updates.date !== undefined) dbUpdates.booking_date = updates.date;
-        if (updates.pax !== undefined) {
-            dbUpdates.pax_adults = updates.pax.adl;
-            dbUpdates.pax_children = updates.pax.chd;
-            dbUpdates.pax_free = updates.pax.free;
-        }
-        if (updates.price !== undefined) dbUpdates.price = parseFloat(updates.price.replace(/[^\d,]/g, '').replace(',', '.'));
-        if (updates.status !== undefined) dbUpdates.status = updates.status;
-        if (updates.location !== undefined) dbUpdates.location = updates.location;
-        if (updates.confirmed !== undefined) dbUpdates.confirmed = updates.confirmed;
-        if (updates.observation !== undefined) dbUpdates.observation = updates.observation;
-        if (updates.paymentMethod !== undefined) dbUpdates.payment_method = updates.paymentMethod;
-
+        const dbUpdates = adapters.booking.toDb(updates);
         const { data, error } = await supabase
             .from('bookings')
             .update(dbUpdates)
@@ -345,10 +253,7 @@ export const bookingService = {
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'bookings.update');
         return adapters.booking.toApp(data);
     },
 
@@ -358,10 +263,7 @@ export const bookingService = {
             .delete()
             .eq('id', id);
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'bookings.delete');
     }
 };
 
@@ -373,78 +275,49 @@ export const budgetService = {
     async getAll(): Promise<Budget[]> {
         const { data, error } = await supabase
             .from('budgets')
-            .select(`
-        *,
-        budget_items (*)
-      `)
+            .select('*, budget_items (*)')
             .order('budget_date', { ascending: false });
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'budgets.getAll');
         return data.map(adapters.budget.toApp);
     },
 
     async create(budget: Omit<Budget, 'id'>): Promise<Budget> {
-        const budgetData = {
-            budget_number: budget.budgetNumber,
-            client_name: budget.clientName,
-            client_whatsapp: budget.clientWhatsapp,
-            budget_date: budget.date,
-            valid_until: budget.validUntil,
-            total_amount: parseFloat(budget.totalAmount.replace(/[^\d,]/g, '').replace(',', '.')),
-            notes: budget.notes,
-            status: budget.status
-        };
-
+        const dbBudget = adapters.budget.toDb(budget);
         const { data: budgetCreated, error: budgetError } = await supabase
             .from('budgets')
-            .insert([budgetData])
+            .insert([dbBudget])
             .select()
             .single();
 
-        if (budgetError) throw budgetError;
+        if (budgetError) handleDbError(budgetError, 'budgets.create');
 
-        // Inserir itens do orçamento
+        // Itens
         if (budget.items && budget.items.length > 0) {
             const items = budget.items.map(item => ({
                 budget_id: budgetCreated.id,
                 description: item.description,
                 pax: item.pax,
-                unit_price: parseFloat(item.unitPrice.replace(/[^\d,]/g, '').replace(',', '.')),
-                total: parseFloat(item.total.replace(/[^\d,]/g, '').replace(',', '.'))
+                unit_price: typeof item.unitPrice === 'string' ? parseFloat(item.unitPrice.replace(/[^\d,]/g, '').replace(',', '.')) : item.unitPrice,
+                total: typeof item.total === 'string' ? parseFloat(item.total.replace(/[^\d,]/g, '').replace(',', '.')) : item.total
             }));
 
-            const { error: itemsError } = await supabase
-                .from('budget_items')
-                .insert(items);
-
-            if (itemsError) throw itemsError;
+            const { error: itemsError } = await supabase.from('budget_items').insert(items);
+            if (itemsError) handleDbError(itemsError, 'budgets.create.items');
         }
 
-        // Recarregar com itens para retornar
         const { data: finalData, error: reloadError } = await supabase
             .from('budgets')
             .select('*, budget_items(*)')
             .eq('id', budgetCreated.id)
             .single();
 
-        if (reloadError) throw reloadError;
+        if (reloadError) handleDbError(reloadError, 'budgets.create.reload');
         return adapters.budget.toApp(finalData);
     },
 
     async update(id: string, updates: Partial<Budget>) {
-        const dbUpdates: any = {};
-        if (updates.budgetNumber) dbUpdates.budget_number = updates.budgetNumber;
-        if (updates.clientName) dbUpdates.client_name = updates.clientName;
-        if (updates.clientWhatsapp) dbUpdates.client_whatsapp = updates.clientWhatsapp;
-        if (updates.date) dbUpdates.budget_date = updates.date;
-        if (updates.validUntil) dbUpdates.valid_until = updates.validUntil;
-        if (updates.totalAmount) dbUpdates.total_amount = parseFloat(updates.totalAmount.replace(/[^\d,]/g, '').replace(',', '.'));
-        if (updates.notes) dbUpdates.notes = updates.notes;
-        if (updates.status) dbUpdates.status = updates.status;
-
+        const dbUpdates = adapters.budget.toDb(updates);
         const { data, error } = await supabase
             .from('budgets')
             .update(dbUpdates)
@@ -452,14 +325,7 @@ export const budgetService = {
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
-
-        // Atualizar itens se fornecidos (complexo, ideal deletar e recriar ou update individual)
-        // Para simplificar, assumimos que itens são atualizados separadamente ou recriados
-
+        if (error) handleDbError(error, 'budgets.update');
         return adapters.budget.toApp(data);
     },
 
@@ -469,10 +335,7 @@ export const budgetService = {
             .delete()
             .eq('id', id);
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'budgets.delete');
     }
 };
 
@@ -487,47 +350,24 @@ export const transactionService = {
             .select('*')
             .order('transaction_date', { ascending: false });
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'transactions.getAll');
         return data.map(adapters.transaction.toApp);
     },
 
     async create(transaction: Omit<Transaction, 'id'>): Promise<Transaction> {
-        const transactionData = {
-            description: transaction.description,
-            category: transaction.category,
-            amount: transaction.amount,
-            type: transaction.type,
-            status: transaction.status,
-            transaction_date: transaction.date,
-            user_name: transaction.userName
-        };
-
+        const dbTrans = adapters.transaction.toDb(transaction);
         const { data, error } = await supabase
             .from('transactions')
-            .insert([transactionData])
+            .insert([dbTrans])
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'transactions.create');
         return adapters.transaction.toApp(data);
     },
 
     async update(id: string, updates: Partial<Transaction>): Promise<Transaction> {
-        const dbUpdates: any = {};
-        if (updates.description) dbUpdates.description = updates.description;
-        if (updates.category) dbUpdates.category = updates.category;
-        if (updates.amount) dbUpdates.amount = updates.amount;
-        if (updates.type) dbUpdates.type = updates.type;
-        if (updates.status) dbUpdates.status = updates.status;
-        if (updates.date) dbUpdates.transaction_date = updates.date;
-        if (updates.userName) dbUpdates.user_name = updates.userName;
-
+        const dbUpdates = adapters.transaction.toDb(updates);
         const { data, error } = await supabase
             .from('transactions')
             .update(dbUpdates)
@@ -535,10 +375,7 @@ export const transactionService = {
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'transactions.update');
         return adapters.transaction.toApp(data);
     },
 
@@ -548,10 +385,7 @@ export const transactionService = {
             .delete()
             .eq('id', id);
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'transactions.delete');
     }
 };
 
@@ -567,50 +401,32 @@ export const tourService = {
             .eq('active', true)
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'tours.getAll');
         return data.map(adapters.tour.toApp);
     },
 
     async create(tour: any): Promise<any> {
-        const dbTour = {
-            title: tour.title,
-            image: tour.image,
-            price: parseFloat(tour.price.toString().replace(/[^\d,]/g, '').replace(',', '.')),
-            duration: tour.duration,
-            region: tour.region,
-            rating: parseFloat(tour.rating),
-            description: tour.description,
-            active: true
-        };
-
+        const dbTour = adapters.tour.toDb(tour);
         const { data, error } = await supabase
             .from('tours')
             .insert([dbTour])
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'tours.create');
         return adapters.tour.toApp(data);
     },
 
     async update(id: string, updates: any): Promise<any> {
+        const dbUpdates = adapters.tour.toDb(updates);
         const { data, error } = await supabase
             .from('tours')
-            .update(updates)
+            .update(dbUpdates)
             .eq('id', id)
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'tours.update');
         return adapters.tour.toApp(data);
     },
 
@@ -620,10 +436,7 @@ export const tourService = {
             .update({ active: false })
             .eq('id', id);
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'tours.delete');
     }
 };
 
@@ -638,45 +451,24 @@ export const taskService = {
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'tasks.getAll');
         return data.map(adapters.task.toApp);
     },
 
     async create(task: any): Promise<any> {
-        const dbTask = {
-            title: task.title,
-            description: task.description,
-            assigned_to: task.assignedTo,
-            due_date: task.dueDate,
-            priority: task.priority,
-            status: task.status
-        };
-
+        const dbTask = adapters.task.toDb(task);
         const { data, error } = await supabase
             .from('tasks')
             .insert([dbTask])
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'tasks.create');
         return adapters.task.toApp(data);
     },
 
     async update(id: string, updates: any) {
-        const dbUpdates: any = {};
-        if (updates.title) dbUpdates.title = updates.title;
-        if (updates.description) dbUpdates.description = updates.description;
-        if (updates.assignedTo) dbUpdates.assigned_to = updates.assignedTo;
-        if (updates.dueDate) dbUpdates.due_date = updates.dueDate;
-        if (updates.priority) dbUpdates.priority = updates.priority;
-        if (updates.status) dbUpdates.status = updates.status;
-
+        const dbUpdates = adapters.task.toDb(updates);
         const { data, error } = await supabase
             .from('tasks')
             .update(dbUpdates)
@@ -684,10 +476,7 @@ export const taskService = {
             .select()
             .single();
 
-        if (error) {
-            console.error('Database Error:', error);
-            throw new Error(`Erro: ${error.message}${error.hint ? ' - ' + error.hint : ''}`);
-        }
+        if (error) handleDbError(error, 'tasks.update');
         return adapters.task.toApp(data);
     },
 
@@ -697,6 +486,7 @@ export const taskService = {
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) handleDbError(error, 'tasks.delete');
     }
 };
+

@@ -176,7 +176,7 @@ const App: React.FC = () => {
     switch (currentView) {
       case 'DASHBOARD': return <DashboardView user={currentUser!} bookings={bookings} clients={clients} transactions={transactions} tours={tours} />;
       case 'BOOKINGS': return <BookingsView config={whiteLabel} bookings={bookings} setBookings={setBookings} clients={clients} onUpdateClients={setClients} />;
-      case 'BUDGETS': return <BudgetsView config={whiteLabel} budgets={budgets} setBudgets={setBudgets} user={currentUser!} clients={clients} onUpdateClients={setClients} />;
+      case 'BUDGETS': return <BudgetsView config={whiteLabel} budgets={budgets} setBudgets={setBudgets} user={currentUser!} clients={clients} onUpdateClients={setClients} tours={tours} />;
       case 'FINANCIAL': return <FinancialView transactions={transactions} onUpdateTransactions={setTransactions} currentUser={currentUser!} />;
       case 'TOURS': return <ToursView tours={tours} onUpdateTours={setTours} />;
       case 'TASKS': return <TasksView tasks={tasks} onUpdateTasks={setTasks} />;
@@ -193,34 +193,64 @@ const App: React.FC = () => {
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
+    const formatTime = (d: string | Date) => {
+      const date = new Date(d);
+      return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    };
+
     bookings.forEach(b => {
       const bDate = new Date(b.date);
       if (bDate >= now && bDate <= next24h) {
-        list.push({ id: `service-${b.id}`, title: "Serviço Próximo", description: `${b.tour} - ${b.client}`, type: 'SERVICE', date: b.date });
+        list.push({
+          id: `service-${b.id}`,
+          title: "Serviço Próximo",
+          description: `${b.tour} - ${b.client}`,
+          type: 'SERVICE',
+          date: b.date,
+          time: formatTime(b.date),
+          userName: 'SISTEMA'
+        });
       }
     });
 
     bookings.forEach(b => {
       if (b.createdAt && new Date(b.createdAt) >= last24h) {
-        list.push({ id: `new-booking-${b.id}`, title: "Novo Agendamento", description: `${b.client} reservou ${b.tour}`, type: 'NEW', date: b.createdAt });
+        list.push({
+          id: `new-booking-${b.id}`,
+          title: "Novo Agendamento",
+          description: `${b.client} reservou ${b.tour}`,
+          type: 'NEW',
+          date: b.createdAt,
+          time: formatTime(b.createdAt),
+          userName: 'EQUIPE'
+        });
       }
     });
 
     budgets.forEach(b => {
       if (b.createdAt && new Date(b.createdAt) >= last24h) {
-        list.push({ id: `new-budget-${b.id}`, title: "Novo Orçamento", description: `Para ${b.clientName}`, type: 'NEW', date: b.createdAt });
+        list.push({
+          id: `new-budget-${b.id}`,
+          title: "Novo Orçamento",
+          description: `Para ${b.clientName}`,
+          type: 'NEW',
+          date: b.createdAt,
+          time: formatTime(b.createdAt),
+          userName: 'EQUIPE'
+        });
       }
     });
 
     return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [bookings, budgets]);
 
-  // Notificação com Som
+  // Notificação com Som (Sinalizador)
   useEffect(() => {
     if (notifications.length > prevNotificationCount.current) {
       if (!notificationSound.current) {
-        notificationSound.current = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-back-2575.mp3');
-        notificationSound.current.volume = 0.5;
+        // Sinalizador mais robusto
+        notificationSound.current = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-bright-software-button-interaction-1135.mp3');
+        notificationSound.current.volume = 0.6;
       }
       notificationSound.current.play().catch(e => console.log('Som bloqueado pelo navegador:', e));
     }
@@ -291,9 +321,17 @@ const App: React.FC = () => {
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${n.type === 'SERVICE' ? 'bg-blue-50 text-blue-500' : 'bg-orange-50 text-orange-500'}`}>
                     {n.type === 'SERVICE' ? <CalendarCheck size={16} weight="fill" /> : <Plus size={16} weight="bold" />}
                   </div>
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="text-[11px] font-black text-gray-900 uppercase leading-none">{n.title}</p>
                     <p className="text-[10px] text-gray-400 mt-1 font-medium">{n.description}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-[8px] font-black bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                        🕒 {n.time}
+                      </span>
+                      <span className="text-[8px] font-black bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded uppercase tracking-tighter">
+                        👤 {n.userName}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )) : (
@@ -316,11 +354,23 @@ const App: React.FC = () => {
                 <DesktopNavBtn active={currentView === 'DASHBOARD'} onClick={() => setCurrentView('DASHBOARD')} icon={<House size={20} />} label="Início" color={whiteLabel.primaryColor} />
                 <DesktopNavBtn active={currentView === 'BOOKINGS'} onClick={() => setCurrentView('BOOKINGS')} icon={<CalendarCheck size={20} />} label="Agenda" color={whiteLabel.primaryColor} />
                 <DesktopNavBtn active={currentView === 'BUDGETS'} onClick={() => setCurrentView('BUDGETS')} icon={<Receipt size={20} />} label="Orçamentos" color={whiteLabel.primaryColor} />
-                {(isAdmin || isDeveloper) && <DesktopNavBtn active={currentView === 'FINANCIAL'} onClick={() => setCurrentView('FINANCIAL')} icon={<Wallet size={20} />} label="Finanças" color={whiteLabel.primaryColor} />}
+                <DesktopNavBtn
+                  active={currentView === 'FINANCIAL'}
+                  onClick={() => {
+                    if (currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'DESENVOLVEDOR')) {
+                      setCurrentView('SETTINGS'); // Redireciona para Gestão
+                    } else {
+                      alert("Acesso Restrito: Área exclusiva para administradores.");
+                    }
+                  }}
+                  icon={<Wallet size={20} />}
+                  label="Finanças"
+                  color={whiteLabel.primaryColor}
+                />
                 <DesktopNavBtn active={currentView === 'CLIENTS'} onClick={() => setCurrentView('CLIENTS')} icon={<UsersIcon size={20} />} label="Clientes" color={whiteLabel.primaryColor} />
                 <DesktopNavBtn active={currentView === 'TOURS'} onClick={() => setCurrentView('TOURS')} icon={<MapTrifold size={20} />} label="Passeios" color={whiteLabel.primaryColor} />
                 <DesktopNavBtn active={currentView === 'TASKS'} onClick={() => setCurrentView('TASKS')} icon={<IdentificationBadge size={20} />} label="Tarefas" color={whiteLabel.primaryColor} />
-                <DesktopNavBtn active={currentView === 'SETTINGS'} onClick={() => setCurrentView('SETTINGS')} icon={<Gear size={20} />} label="Configuração" color={whiteLabel.primaryColor} />
+                <DesktopNavBtn active={currentView === 'SETTINGS'} onClick={() => setCurrentView('SETTINGS')} icon={<Gear size={20} />} label="Gestão" color={whiteLabel.primaryColor} />
               </nav>
             </div>
           </aside>
@@ -337,11 +387,23 @@ const App: React.FC = () => {
             <NavBtn active={currentView === 'DASHBOARD'} onClick={() => setCurrentView('DASHBOARD')} icon={<House size={20} />} label="Início" color={whiteLabel.primaryColor} />
             <NavBtn active={currentView === 'BOOKINGS'} onClick={() => setCurrentView('BOOKINGS')} icon={<CalendarCheck size={20} />} label="Agenda" color={whiteLabel.primaryColor} />
             <NavBtn active={currentView === 'BUDGETS'} onClick={() => setCurrentView('BUDGETS')} icon={<Receipt size={20} />} label="Orçamentos" color={whiteLabel.primaryColor} />
-            {(isAdmin || isDeveloper) && <NavBtn active={currentView === 'FINANCIAL'} onClick={() => setCurrentView('FINANCIAL')} icon={<Wallet size={20} />} label="Finanças" color={whiteLabel.primaryColor} />}
+            <NavBtn
+              active={currentView === 'FINANCIAL'}
+              onClick={() => {
+                if (currentUser && (currentUser.role === 'ADMIN' || currentUser.role === 'DESENVOLVEDOR')) {
+                  setCurrentView('SETTINGS');
+                } else {
+                  alert("Acesso Restrito: Área exclusiva para administradores.");
+                }
+              }}
+              icon={<Wallet size={20} />}
+              label="Finanças"
+              color={whiteLabel.primaryColor}
+            />
             <NavBtn active={currentView === 'CLIENTS'} onClick={() => setCurrentView('CLIENTS')} icon={<UsersIcon size={20} />} label="Clientes" color={whiteLabel.primaryColor} />
             <NavBtn active={currentView === 'TOURS'} onClick={() => setCurrentView('TOURS')} icon={<MapTrifold size={20} />} label="Passeios" color={whiteLabel.primaryColor} />
             <NavBtn active={currentView === 'TASKS'} onClick={() => setCurrentView('TASKS')} icon={<IdentificationBadge size={20} />} label="Tarefas" color={whiteLabel.primaryColor} />
-            <NavBtn active={currentView === 'SETTINGS'} onClick={() => setCurrentView('SETTINGS')} icon={<Gear size={20} />} label="Config" color={whiteLabel.primaryColor} />
+            <NavBtn active={currentView === 'SETTINGS'} onClick={() => setCurrentView('SETTINGS')} icon={<Gear size={20} />} label="Gestão" color={whiteLabel.primaryColor} />
           </nav>
         </div>
       )}

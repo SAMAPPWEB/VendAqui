@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Plus, MagnifyingGlass, WhatsappLogo, X, CheckCircle, Trash, FilePdf, QrCode, CreditCard, Bank, CircleNotch } from "phosphor-react";
+import { Plus, MagnifyingGlass, WhatsappLogo, X, CheckCircle, Trash, FilePdf, QrCode, CreditCard, Bank, CircleNotch, CaretLeft, CaretRight, CalendarPlus, NotePencil, ClockCounterClockwise } from "phosphor-react";
 import { jsPDF } from "jspdf";
 import { bookingService, clientService } from "../services/databaseService";
 import { User, Booking, Client, WhiteLabelConfig } from "../types";
@@ -27,6 +27,10 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
   const [search, setSearch] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [viewMode, setViewMode] = useState<'LIST' | 'CALENDAR'>('LIST');
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date>(new Date());
+  const [showPackageHistory, setShowPackageHistory] = useState(false);
+  const [historyClient, setHistoryClient] = useState<Client | null>(null);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("PIX");
@@ -53,6 +57,22 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     if (!clean) return "";
     const amount = (parseInt(clean) / 100).toFixed(2);
     return amount.replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+
+  const formatDateLong = (dateStr: string) => {
+    if (!dateStr) return "";
+    try {
+      // Handle YYYY-MM-DD
+      const [year, month, day] = dateStr.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (e) {
+      return dateStr;
+    }
   };
 
   const handlePriceInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,43 +247,192 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
           </button>
         </div>
 
-        <div className="relative">
-          <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value.toUpperCase())} placeholder="PESQUISAR NA AGENDA..." className="w-full bg-white border border-gray-200 rounded-[20px] py-4 pl-12 pr-4 text-sm font-bold focus:border-orange-500 outline-none shadow-sm uppercase" />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value.toUpperCase())} placeholder="PESQUISAR NA AGENDA..." className="w-full bg-white border border-gray-200 rounded-[20px] py-4 pl-12 pr-4 text-sm font-bold focus:border-orange-500 outline-none shadow-sm uppercase" />
+          </div>
+          <button
+            onClick={() => setViewMode(viewMode === 'LIST' ? 'CALENDAR' : 'LIST')}
+            className={`px-4 bg-white border border-gray-100 rounded-[20px] shadow-sm flex items-center gap-2 text-[9px] font-black uppercase transition-all ${viewMode === 'CALENDAR' ? 'text-orange-600 border-orange-200 bg-orange-50' : 'text-gray-400'}`}
+          >
+            {viewMode === 'LIST' ? 'Calendário' : 'Lista'}
+          </button>
         </div>
 
-        <div className="space-y-4">
-          {filteredBookings.map(b => (
-            <div key={b.id} className="agenda-card bg-white border-gray-100 p-4 space-y-3 shadow-sm">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="font-black text-sm text-gray-900 uppercase leading-none">{b.client}</h4>
-                  <p className="text-[10px] text-orange-600 font-bold mt-1 uppercase tracking-tight">{b.tour}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black text-gray-400 uppercase">{b.date}</p>
-                  <p className="text-sm font-black text-gray-900">R$ {b.price}</p>
-                </div>
-              </div>
+        {viewMode === 'CALENDAR' && (
+          <div className="agenda-card bg-white border-gray-100 p-6 shadow-sm animate-fadeIn">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-[11px] font-black text-gray-900 uppercase tracking-widest">
+                {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(selectedCalendarDate)}
+              </h3>
               <div className="flex gap-2">
-                <button onClick={() => handleWhatsAppShare(b)} className="flex-1 bg-[#25D366] text-white py-3 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
-                  <WhatsappLogo size={16} weight="fill" /> WhatsApp
+                <button onClick={() => setSelectedCalendarDate(new Date(selectedCalendarDate.getFullYear(), selectedCalendarDate.getMonth() - 1, 1))} className="p-2 bg-gray-50 rounded-xl">
+                  <CaretLeft size={20} weight="bold" />
                 </button>
-                <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 text-white py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
-                  <FilePdf size={16} weight="fill" /> Voucher
-                </button>
-                <button onClick={() => openEdit(b)} className="p-3 bg-gray-100 text-gray-500 rounded-xl active:scale-95 transition-all">
-                  <Plus size={20} className="rotate-45 hidden" /> {/* Placeholder fallback */}
-                  <span className="text-[8px] font-black">EDITAR</span>
-                </button>
-                <button onClick={() => handleDelete(b.id)} className="p-3 bg-red-50 text-red-500 rounded-xl active:scale-95 transition-all">
-                  <Trash size={20} />
+                <button onClick={() => setSelectedCalendarDate(new Date(selectedCalendarDate.getFullYear(), selectedCalendarDate.getMonth() + 1, 1))} className="p-2 bg-gray-50 rounded-xl">
+                  <CaretRight size={20} weight="bold" />
                 </button>
               </div>
             </div>
-          ))}
-        </div>
+
+            <div className="grid grid-cols-7 gap-1 text-center mb-2">
+              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((d, i) => (
+                <span key={i} className="text-[8px] font-black text-gray-300 uppercase">{d}</span>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {Array.from({ length: new Date(selectedCalendarDate.getFullYear(), selectedCalendarDate.getMonth() + 1, 0).getDate() }, (_, i) => {
+                const day = i + 1;
+                const dStr = `${selectedCalendarDate.getFullYear()}-${String(selectedCalendarDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const hasBooking = bookings.some(b => b.date === dStr);
+
+                return (
+                  <button
+                    key={day}
+                    onClick={() => {
+                      const firstBookingOnDay = bookings.find(b => b.date === dStr);
+                      if (firstBookingOnDay) {
+                        const client = clients.find(c => c.id === firstBookingOnDay.clientId || c.nome.toUpperCase() === firstBookingOnDay.client.toUpperCase());
+                        if (client) {
+                          setHistoryClient(client);
+                          setShowPackageHistory(true);
+                        } else {
+                          // Fallback for manual clients
+                          setHistoryClient({ id: 'manual', nome: firstBookingOnDay.client, whatsapp: firstBookingOnDay.whatsapp, status: 'ATIVO' } as any);
+                          setShowPackageHistory(true);
+                        }
+                      }
+                    }}
+                    className={`h-12 w-full rounded-2xl text-[10px] font-black flex flex-col items-center justify-center transition-all relative ${hasBooking ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                  >
+                    {day}
+                    {hasBooking && <div className="w-1 h-1 bg-orange-500 rounded-full mt-0.5" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'LIST' && (
+          <div className="space-y-4">
+            {filteredBookings.map(b => (
+              <div key={b.id} className="agenda-card bg-white border-gray-100 p-4 space-y-3 shadow-sm">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-black text-sm text-gray-900 uppercase leading-none">{b.client}</h4>
+                    <p className="text-[10px] text-orange-600 font-bold mt-1 uppercase tracking-tight">{b.tour}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">{formatDateLong(b.date)}</p>
+                    <p className="text-sm font-black text-gray-900">R$ {b.price}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => handleWhatsAppShare(b)} className="flex-1 bg-[#25D366] text-white py-3 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
+                    <WhatsappLogo size={16} weight="fill" /> WhatsApp
+                  </button>
+                  <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 text-white py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
+                    <FilePdf size={16} weight="fill" /> Voucher
+                  </button>
+                  <button onClick={() => openEdit(b)} className="p-3 bg-gray-100 text-gray-500 rounded-xl active:scale-95 transition-all">
+                    <Plus size={20} className="rotate-45 hidden" /> {/* Placeholder fallback */}
+                    <span className="text-[8px] font-black">EDITAR</span>
+                  </button>
+                  <button onClick={() => handleDelete(b.id)} className="p-3 bg-red-50 text-red-500 rounded-xl active:scale-95 transition-all">
+                    <Trash size={20} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {filteredBookings.length === 0 && (
+              <div className="py-20 text-center opacity-30 flex flex-col items-center">
+                <CalendarPlus size={48} className="mb-2" />
+                <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma reserva localizada</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {showPackageHistory && historyClient && (
+        <div className="fixed inset-0 z-[10000] bg-black/95 backdrop-blur-md flex items-end sm:items-center justify-center">
+          <div className="w-full max-w-2xl bg-white rounded-t-[40px] sm:rounded-[40px] flex flex-col max-h-[92vh] animate-slide shadow-2xl overflow-hidden relative border-t-8 border-orange-500">
+            <div className="px-8 pt-8 pb-4 flex justify-between items-center border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600">
+                  <ClockCounterClockwise size={24} weight="bold" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter leading-none">Histórico do Pacote</h3>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Cliente: {historyClient.nome}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowPackageHistory(false)} className="p-2 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900">
+                <X size={24} weight="bold" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto no-scrollbar p-8 space-y-6">
+              <div className="space-y-4">
+                {bookings.filter(b => b.clientId === historyClient.id || b.client.toUpperCase() === historyClient.nome.toUpperCase()).map(b => (
+                  <div key={b.id} className="agenda-card bg-gray-50 border-gray-100 p-5 flex flex-col gap-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-xs font-black text-gray-900 uppercase leading-none">{b.tour}</p>
+                        <p className="text-[10px] text-orange-600 font-bold mt-1 uppercase">{formatDateLong(b.date)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-gray-900">R$ {b.price}</p>
+                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${b.confirmed ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                          {b.confirmed ? 'Confirmado' : 'Pendente'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button onClick={() => { setShowPackageHistory(false); openEdit(b); }} className="flex-1 bg-white border border-gray-200 text-gray-600 py-3 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2">
+                        <NotePencil size={14} /> Alterar
+                      </button>
+                      <button onClick={() => {
+                        const newDate = prompt("Nova data (AAAA-MM-DD):", b.date);
+                        if (newDate && newDate !== b.date) {
+                          bookingService.update(b.id, { date: newDate }).then(updated => {
+                            setBookings(bookings.map(book => book.id === b.id ? updated : book));
+                          });
+                        }
+                      }} className="flex-1 bg-white border border-gray-200 text-gray-600 py-3 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2">
+                        <ClockCounterClockwise size={14} /> Adiar
+                      </button>
+                      <button onClick={() => handleDelete(b.id)} className="p-3 bg-red-50 text-red-500 rounded-xl">
+                        <Trash size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-8 py-6 bg-white border-t border-gray-100 flex-shrink-0">
+              <button onClick={() => {
+                setShowPackageHistory(false);
+                setEditingBooking(null);
+                setClientName(historyClient.nome);
+                setWhatsappValue(historyClient.whatsapp);
+                setHotelSearch(historyClient.endereco || "");
+                setSelectedClient(historyClient.id === 'manual' ? null : historyClient);
+                setCart([]);
+                setModalStep('FORM');
+                setShowModal(true);
+              }} className="w-full bg-gray-900 text-white rounded-3xl py-6 text-[11px] font-black uppercase shadow-xl flex items-center justify-center gap-2">
+                <CalendarPlus size={20} weight="fill" /> Inclusão no Pacote
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex items-end sm:items-center justify-center">
@@ -395,9 +564,17 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                         <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
                           <div>
                             <p className="text-[11px] font-black text-gray-900 uppercase leading-none">{item.tour}</p>
-                            <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">{item.date}</p>
+                            <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">{formatDateLong(item.date)}</p>
                           </div>
-                          <span className="text-[11px] font-black text-orange-600">R$ {item.price}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-[11px] font-black text-orange-600">R$ {item.price}</span>
+                            <button onClick={() => {
+                              const newCart = cart.filter(c => c.id !== item.id);
+                              setCart(newCart);
+                            }} className="p-2 text-red-400 hover:text-red-600 transition-colors">
+                              <Trash size={16} weight="bold" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

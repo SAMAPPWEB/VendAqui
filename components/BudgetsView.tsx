@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from "react";
 import { Plus, MagnifyingGlass, FilePdf, X, CheckCircle, Receipt, TrashSimple, PencilSimple, Trash, CaretDown, UserPlus } from "phosphor-react";
 import { jsPDF } from "jspdf";
-import { WhiteLabelConfig, Budget, BudgetItem, User, Client } from "../types";
+import { WhiteLabelConfig, Budget, BudgetItem, User, Client, Tour } from "../types";
 import { budgetService, clientService } from "../services/databaseService";
 
 interface BudgetsViewProps {
@@ -12,9 +12,10 @@ interface BudgetsViewProps {
   user: User;
   clients: Client[];
   onUpdateClients: (clients: Client[]) => void;
+  tours: Tour[];
 }
 
-const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, user, clients, onUpdateClients }) => {
+const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, user, clients, onUpdateClients, tours }) => {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
@@ -57,6 +58,22 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
       }
       return item;
     }));
+  };
+
+  const handleDescriptionChange = (id: string, value: string) => {
+    const upperValue = value.toUpperCase();
+    const matchedTour = tours.find(t => t.title.toUpperCase() === upperValue);
+
+    if (matchedTour) {
+      // Se encontrou o passeio, atualiza descrição e preço
+      updateItem(id, {
+        description: upperValue,
+        unitPrice: formatCurrency(matchedTour.price.replace(/[^\d]/g, ""))
+      });
+    } else {
+      // Caso contrário apenas a descrição
+      updateItem(id, { description: upperValue });
+    }
   };
 
   const addNewItem = () => {
@@ -122,15 +139,22 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     }
 
     try {
-      // Objeto base para envio. O ID será ignorado na criação (Omit) ou usado no update.
-      // O budgetService.create espera Omit<Budget, 'id'>.
+      // Objeto base para envio.
+      const today = new Date();
+      const formattedToday = today.toLocaleDateString('pt-BR');
+
+      let formattedValidUntil = validUntil;
+      if (!formattedValidUntil) {
+        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+        formattedValidUntil = nextWeek.toLocaleDateString('pt-BR');
+      }
 
       const budgetPayload = {
         budgetNumber: editingBudget?.budgetNumber || (budgets.length + 1).toString().padStart(4, '0'),
         clientName: upperName,
         clientWhatsapp: upperWhatsapp,
-        date: new Date().toLocaleDateString('pt-BR'),
-        validUntil: validUntil || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR'),
+        date: editingBudget?.date || formattedToday,
+        validUntil: formattedValidUntil,
         items: items,
         totalAmount: totalAmount,
         notes: notes,
@@ -370,10 +394,10 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
                 </div>
               </div>
               <div className="flex gap-2">
-                <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 text-white py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 cursor-pointer">
-                  <FilePdf size={16} /> Gerar Voucher
+                <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 text-white py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 cursor-pointer hover:bg-black transition-colors">
+                  <FilePdf size={16} weight="bold" /> Gerar Voucher
                 </button>
-                <button onClick={() => openEdit(b)} className="p-3 bg-gray-50 text-gray-400 rounded-xl hover:text-orange-500 transition-colors cursor-pointer">
+                <button onClick={() => openEdit(b)} className="w-12 bg-gray-50 text-gray-400 rounded-xl hover:text-orange-500 hover:bg-orange-50 transition-colors cursor-pointer flex items-center justify-center active:scale-95">
                   <PencilSimple size={20} weight="bold" />
                 </button>
                 <button onClick={async () => {
@@ -385,8 +409,8 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
                       alert("Erro ao excluir orçamento.");
                     }
                   }
-                }} className="p-3 bg-red-50 text-red-500 rounded-xl active:scale-95 cursor-pointer">
-                  <Trash size={20} />
+                }} className="w-12 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 active:scale-95 cursor-pointer flex items-center justify-center transition-colors">
+                  <Trash size={20} weight="bold" />
                 </button>
               </div>
             </div>
@@ -461,8 +485,60 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
                         <TrashSimple size={20} />
                       </button>
                       <div className="space-y-1.5">
-                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Serviço / Descrição</label>
-                        <input value={item.description} onChange={e => updateItem(item.id, { description: e.target.value.toUpperCase() })} className="w-full bg-white border border-gray-200 rounded-xl py-3 px-4 text-xs font-bold text-gray-900 focus:border-orange-500 outline-none uppercase" placeholder="EX: PASSEIO RECIFE DE FORA" />
+                        <div className="flex justify-between">
+                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Serviço / Descrição</label>
+                          <label className="text-[9px] font-black text-orange-600 uppercase tracking-widest">
+                            <span className="hidden sm:inline">Preencher com </span>Passeio Cadastrado
+                          </label>
+                        </div>
+
+                        <div className="relative mb-3 group">
+                          <select
+                            onChange={(e) => {
+                              const selectedTour = tours.find(t => t.id === e.target.value);
+                              if (selectedTour) {
+                                // Atualiza descrição e preço com base no passeio selecionado
+                                let priceString = selectedTour.price.toString();
+                                let rawDigits = priceString.replace(/\D/g, "");
+
+                                if (!priceString.includes('.') && !priceString.includes(',')) {
+                                  rawDigits += "00";
+                                }
+
+                                updateItem(item.id, {
+                                  description: selectedTour.title.toUpperCase(),
+                                  unitPrice: formatCurrency(rawDigits)
+                                });
+                                // Resetar o select para permitir nova seleção e feedback visual
+                                e.target.value = "";
+                              }
+                            }}
+                            className="w-full bg-orange-50 border border-orange-100 rounded-xl py-3 px-4 text-[11px] font-black text-orange-600 focus:border-orange-500 outline-none uppercase cursor-pointer appearance-none hover:bg-orange-100 transition-colors"
+                          >
+                            <option value="">📂 Selecionar Passeio da Lista...</option>
+                            {tours.map(t => (
+                              <option key={t.id} value={t.id}>
+                                {t.title.toUpperCase()} - {t.price}
+                              </option>
+                            ))}
+                          </select>
+                          <CaretDown size={14} weight="bold" className="absolute right-4 top-1/2 -translate-y-1/2 text-orange-400 pointer-events-none group-hover:text-orange-600" />
+                        </div>
+
+                        <input
+                          value={item.description}
+                          onChange={e => handleDescriptionChange(item.id, e.target.value)}
+                          list="tours-list"
+                          className="w-full bg-white border border-gray-200 rounded-xl py-3 px-4 text-xs font-bold text-gray-900 focus:border-orange-500 outline-none uppercase"
+                          placeholder="EX: PASSEIO RECIFE DE FORA"
+                        />
+                        <datalist id="tours-list">
+                          {tours.map(t => (
+                            <option key={t.id} value={t.title.toUpperCase()}>
+                              R$ {t.price}
+                            </option>
+                          ))}
+                        </datalist>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">

@@ -13,6 +13,16 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, onUpdateTasks }) => {
   const [viewDate, setViewDate] = useState(new Date());
   const [showAdd, setShowAdd] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
+
+  const formatDateLong = (dateStr: string) => {
+    if (!dateStr) return "";
+    try {
+      const [year, month, day] = dateStr.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    } catch (e) { return dateStr; }
+  };
 
   const formatToYMD = (date: Date) => {
     const y = date.getFullYear();
@@ -33,33 +43,42 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, onUpdateTasks }) => {
     const date = fd.get('date') as string;
 
     try {
-      const newTask = await taskService.create({
-        title,
-        description: time, // Usando description para guardar o horário por enquanto, ou adaptar o model
-        assignedTo: null,
-        dueDate: date || selectedDateStr,
-        priority: 'NORMAL',
-        status: 'PENDENTE'
-      });
-      // Adaptando o retorno do banco para o formato esperado pela view, se necessário
-      // O service retorna formato snake_case adaptado para camelCase pelo adapter?
-      // O adapter já converte. Vamos garantir que o formato bata com a View.
-      // View espera: { id, title, time, date, completed }
-      // Service (via adapter) retorna: { id, title, description, assignedTo, dueDate, priority, status }
-
-      // Mapeando para visualização local imediata
-      const mappedTask = {
-        id: newTask.id,
-        title: newTask.title,
-        time: newTask.description,
-        date: newTask.dueDate,
-        completed: newTask.status === 'CONCLUIDO'
-      };
-
-      onUpdateTasks([...tasks, mappedTask]);
+      if (editingTask) {
+        const updated = await taskService.update(editingTask.id, {
+          title,
+          description: time,
+          dueDate: date || selectedDateStr,
+        });
+        const mapped = {
+          id: updated.id,
+          title: updated.title,
+          time: updated.description,
+          date: updated.dueDate,
+          completed: updated.status === 'CONCLUIDO'
+        };
+        onUpdateTasks(tasks.map(t => t.id === editingTask.id ? mapped : t));
+      } else {
+        const newTask = await taskService.create({
+          title,
+          description: time,
+          assignedTo: null,
+          dueDate: date || selectedDateStr,
+          priority: 'NORMAL',
+          status: 'PENDENTE'
+        });
+        const mappedTask = {
+          id: newTask.id,
+          title: newTask.title,
+          time: newTask.description,
+          date: newTask.dueDate,
+          completed: newTask.status === 'CONCLUIDO'
+        };
+        onUpdateTasks([...tasks, mappedTask]);
+      }
       setShowAdd(false);
+      setEditingTask(null);
     } catch (error) {
-      console.error("Erro ao criar tarefa:", error);
+      console.error("Erro ao salvar tarefa:", error);
       alert("Erro ao salvar tarefa.");
     } finally {
       setIsSaving(false);
@@ -135,12 +154,20 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, onUpdateTasks }) => {
                 </button>
                 <div className={task.completed ? 'opacity-30 line-through' : ''}>
                   <p className="text-[12px] font-black text-gray-900 uppercase tracking-tight leading-none">{task.title}</p>
-                  <span className="text-[9px] font-bold text-gray-400 mt-1 flex items-center gap-1 uppercase"><Clock size={12} /> {task.time || "GERAL"}</span>
+                  <span className="text-[9px] font-bold text-gray-400 mt-1 flex items-center gap-1 uppercase">
+                    <Clock size={12} /> {task.time || "GERAL"} • {formatDateLong(task.date)}
+                  </span>
                 </div>
               </div>
-              <button onClick={() => removeTask(task.id)} className="p-2.5 bg-red-50 text-red-400 rounded-xl active:scale-95">
-                <Trash size={18} />
-              </button>
+              <div className="flex gap-2">
+                <button onClick={() => { setEditingTask(task); setShowAdd(true); }} className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:text-orange-500 transition-colors">
+                  <Plus size={18} weight="bold" className="rotate-45" />
+                  <span className="text-[8px] font-black ml-1">EDITAR</span>
+                </button>
+                <button onClick={() => removeTask(task.id)} className="p-2.5 bg-red-50 text-red-400 rounded-xl active:scale-95">
+                  <Trash size={18} />
+                </button>
+              </div>
             </div>
           )) : (
             <div className="py-12 text-center opacity-30 flex flex-col items-center">
@@ -155,41 +182,45 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, onUpdateTasks }) => {
         <div className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex items-end sm:items-center justify-center">
           <div className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-[40px] flex flex-col max-h-[92vh] animate-slide shadow-2xl overflow-hidden relative border-t-8 border-orange-500">
             <div className="px-8 pt-8 pb-4 flex justify-between items-center border-b border-gray-100 flex-shrink-0">
-              <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter leading-none">Nova Tarefa</h3>
+              <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter leading-none">
+                {editingTask ? "Editar Tarefa" : "Nova Tarefa"}
+              </h3>
               <div className="flex gap-2">
-                <button onClick={() => setShowAdd(false)} className="px-4 py-2 bg-gray-100 rounded-full text-[9px] font-black text-gray-500 uppercase tracking-widest hover:bg-gray-200 transition-colors cursor-pointer">
+                <button onClick={() => { setShowAdd(false); setEditingTask(null); }} className="px-4 py-2 bg-gray-100 rounded-full text-[9px] font-black text-gray-500 uppercase tracking-widest hover:bg-gray-200 transition-colors cursor-pointer">
                   Retornar
                 </button>
-                <button onClick={() => setShowAdd(false)} className="p-3 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-colors cursor-pointer">
+                <button onClick={() => { setShowAdd(false); setEditingTask(null); }} className="p-3 bg-gray-50 rounded-full text-gray-400 hover:text-gray-900 transition-colors cursor-pointer">
                   <X size={24} weight="bold" />
                 </button>
               </div>
             </div>
 
-            <form onSubmit={handleSaveTask} className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar">
+            <form id="taskForm" onSubmit={handleSaveTask} className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">O que fazer?</label>
-                <input name="title" required placeholder="TÍTULO DA ATIVIDADE" className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-5 text-sm font-bold outline-none focus:border-orange-500 uppercase" />
+                <input name="title" defaultValue={editingTask?.title} required placeholder="TÍTULO DA ATIVIDADE" className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-5 text-sm font-bold outline-none focus:border-orange-500 uppercase" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Data</label>
-                  <input name="date" type="date" defaultValue={selectedDateStr} className="w-full bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs font-bold text-gray-900" />
+                  <input name="date" type="date" defaultValue={editingTask?.date || selectedDateStr} className="w-full bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs font-bold text-gray-900" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Horário</label>
-                  <input name="time" type="time" className="w-full bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs font-bold text-gray-900" />
+                  <input name="time" type="time" defaultValue={editingTask?.time} className="w-full bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs font-bold text-gray-900" />
                 </div>
               </div>
               <div className="h-10"></div>
             </form>
 
             <div className="px-8 py-6 bg-white border-t border-gray-100 flex-shrink-0">
-              <button type="submit" onClick={(e) => {
-                const form = (e.currentTarget.closest('div')!.previousSibling as HTMLElement).querySelector('form');
-                form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-              }} className="w-full bg-orange-500 text-white rounded-3xl py-6 text-[11px] font-black uppercase shadow-xl active:scale-95 transition-all">
-                Criar Agendamento
+              <button
+                type="submit"
+                form="taskForm"
+                className="w-full bg-orange-500 text-white rounded-3xl py-6 text-[11px] font-black uppercase shadow-xl active:scale-95 transition-all disabled:opacity-50"
+                disabled={isSaving}
+              >
+                {isSaving ? 'SALVANDO...' : (editingTask ? 'SALVAR ALTERAÇÕES' : 'SALVAR TAREFA')}
               </button>
             </div>
           </div>

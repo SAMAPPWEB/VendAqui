@@ -15,6 +15,29 @@ const FinancialView: React.FC<FinancialViewProps> = ({ transactions, onUpdateTra
    const [editingTx, setEditingTx] = useState<Transaction | null>(null);
    const [search, setSearch] = useState("");
 
+   const formatCurrency = (value: string | number) => {
+      if (typeof value === 'number') {
+         return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      }
+      const clean = value.replace(/\D/g, "");
+      if (!clean) return "";
+      const amount = (parseInt(clean) / 100).toFixed(2);
+      return amount.replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+   };
+
+   const parseCurrency = (value: string) => {
+      return parseFloat(value.replace(/\D/g, "")) / 100 || 0;
+   };
+
+   const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const clean = e.target.value.replace(/\D/g, "");
+      if (!clean) {
+         e.target.value = "";
+         return;
+      }
+      e.target.value = formatCurrency(clean) as string;
+   };
+
    const stats = useMemo(() => {
       const income = transactions.filter(t => t.type === 'ENTRADA' && t.status === 'PAGO').reduce((acc, curr) => acc + curr.amount, 0);
       const expenses = transactions.filter(t => t.type === 'SAIDA' && t.status === 'PAGO').reduce((acc, curr) => acc + curr.amount, 0);
@@ -39,13 +62,12 @@ const FinancialView: React.FC<FinancialViewProps> = ({ transactions, onUpdateTra
    const handleSave = async (e: React.FormEvent) => {
       e.preventDefault();
       const fd = new FormData(e.currentTarget as HTMLFormElement);
-      const amountStr = fd.get('amount')?.toString().replace(',', '.') || '0';
+      const amountStr = fd.get('amount')?.toString() || '0';
 
-      // Objeto base da View
       const txPayload = {
          description: fd.get('description')?.toString().toUpperCase() || "",
          category: fd.get('category')?.toString().toUpperCase() || "OUTROS",
-         amount: parseFloat(amountStr),
+         amount: parseCurrency(amountStr),
          type: fd.get('type') as 'ENTRADA' | 'SAIDA',
          status: fd.get('status') as 'PAGO' | 'PENDENTE',
          date: fd.get('date')?.toString() || new Date().toISOString().split('T')[0],
@@ -54,11 +76,9 @@ const FinancialView: React.FC<FinancialViewProps> = ({ transactions, onUpdateTra
 
       try {
          if (editingTx) {
-            // Update
             const updated = await transactionService.update(editingTx.id, txPayload);
             onUpdateTransactions(transactions.map(t => t.id === editingTx.id ? updated : t));
          } else {
-            // Create
             const created = await transactionService.create(txPayload);
             onUpdateTransactions([created, ...transactions]);
          }
@@ -84,7 +104,7 @@ const FinancialView: React.FC<FinancialViewProps> = ({ transactions, onUpdateTra
    return (
       <div className="px-6 pb-24">
          <div className="space-y-6 animate-slide">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center text-left">
                <div>
                   <h2 className="text-2xl font-black tracking-tight text-gray-900 uppercase leading-none">Gestão Financeira</h2>
                   <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">Fluxo de Caixa Operacional</p>
@@ -94,41 +114,39 @@ const FinancialView: React.FC<FinancialViewProps> = ({ transactions, onUpdateTra
                </button>
             </div>
 
-            {/* Dashboard de Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-               <div className="agenda-card bg-gray-900 p-4 flex flex-col justify-between h-28 border-none shadow-xl">
+               <div className="agenda-card bg-gray-900 p-4 flex flex-col justify-between h-28 border-none shadow-xl text-left">
                   <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center text-white"><Wallet size={18} weight="fill" /></div>
                   <div>
-                     <p className="text-lg font-black text-white leading-none">R$ {stats.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                     <p className="text-lg font-black text-white leading-none">{formatCurrency(stats.total)}</p>
                      <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mt-2">Saldo em Caixa</p>
                   </div>
                </div>
-               <div className="agenda-card bg-white p-4 flex flex-col justify-between h-28 shadow-sm">
+               <div className="agenda-card bg-white p-4 flex flex-col justify-between h-28 shadow-sm text-left">
                   <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600"><TrendUp size={18} weight="bold" /></div>
                   <div>
-                     <p className="text-lg font-black text-emerald-600 leading-none">R$ {stats.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                     <p className="text-lg font-black text-emerald-600 leading-none">{formatCurrency(stats.income)}</p>
                      <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mt-2">Entradas Pagas</p>
                   </div>
                </div>
-               <div className="agenda-card bg-white p-4 flex flex-col justify-between h-28 shadow-sm">
+               <div className="agenda-card bg-white p-4 flex flex-col justify-between h-28 shadow-sm text-left">
                   <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center text-red-600"><TrendDown size={18} weight="bold" /></div>
                   <div>
-                     <p className="text-lg font-black text-red-600 leading-none">R$ {stats.expenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                     <p className="text-lg font-black text-red-600 leading-none">{formatCurrency(stats.expenses)}</p>
                      <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mt-2">Saídas Pagas</p>
                   </div>
                </div>
-               <div className="agenda-card bg-white p-4 flex flex-col justify-between h-28 shadow-sm">
+               <div className="agenda-card bg-white p-4 flex flex-col justify-between h-28 shadow-sm text-left">
                   <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500"><Clock size={18} weight="bold" /></div>
                   <div>
-                     <p className="text-lg font-black text-amber-600 leading-none">R$ {stats.pendingIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                     <p className="text-lg font-black text-amber-600 leading-none">{formatCurrency(stats.pendingIncome)}</p>
                      <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest mt-2">A Receber</p>
                   </div>
                </div>
             </div>
 
-            {/* Busca e Lista */}
             <div className="space-y-4">
-               <div className="relative">
+               <div className="relative text-left">
                   <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
                      type="text"
@@ -141,7 +159,7 @@ const FinancialView: React.FC<FinancialViewProps> = ({ transactions, onUpdateTra
 
                <div className="space-y-3">
                   {filteredTransactions.map(tx => (
-                     <div key={tx.id} className="agenda-card bg-white p-4 flex flex-col gap-3 shadow-sm border-l-8" style={{ borderLeftColor: tx.type === 'ENTRADA' ? '#10B981' : '#EF4444' }}>
+                     <div key={tx.id} className="agenda-card bg-white p-4 flex flex-col gap-3 shadow-sm border-l-8 text-left" style={{ borderLeftColor: tx.type === 'ENTRADA' ? '#10B981' : '#EF4444' }}>
                         <div className="flex justify-between items-start">
                            <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
@@ -153,7 +171,7 @@ const FinancialView: React.FC<FinancialViewProps> = ({ transactions, onUpdateTra
                            </div>
                            <div className="text-right flex flex-col items-end gap-1.5 ml-4">
                               <p className={`text-sm font-black ${tx.type === 'ENTRADA' ? 'text-emerald-600' : 'text-red-600'}`}>
-                                 {tx.type === 'ENTRADA' ? '+' : '-'} R$ {tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                 {tx.type === 'ENTRADA' ? '+' : '-'} {formatCurrency(tx.amount)}
                               </p>
                               <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase border ${tx.status === 'PAGO' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{tx.status}</span>
                            </div>
@@ -185,16 +203,13 @@ const FinancialView: React.FC<FinancialViewProps> = ({ transactions, onUpdateTra
                   <div className="px-8 pt-8 pb-4 flex justify-between items-center border-b border-gray-100 flex-shrink-0">
                      <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Lançamento Financeiro</h3>
                      <div className="flex gap-2">
-                        <button onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-100 rounded-full text-[9px] font-black text-gray-500 uppercase tracking-widest hover:bg-gray-200 transition-colors cursor-pointer">
-                           Retornar
-                        </button>
                         <button onClick={() => setShowModal(false)} className="p-2 bg-gray-50 rounded-full text-gray-400">
                            <X size={24} weight="bold" />
                         </button>
                      </div>
                   </div>
 
-                  <form id="txForm" onSubmit={handleSave} className="flex-1 overflow-y-auto no-scrollbar p-8 space-y-6">
+                  <form id="txForm" onSubmit={handleSave} className="flex-1 overflow-y-auto no-scrollbar p-8 space-y-6 text-left">
                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Tipo de Fluxo</label>
@@ -224,7 +239,15 @@ const FinancialView: React.FC<FinancialViewProps> = ({ transactions, onUpdateTra
                         </div>
                         <div className="space-y-1.5">
                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Valor Total R$</label>
-                           <input name="amount" type="text" defaultValue={editingTx?.amount} placeholder="0,00" required className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-4 text-sm font-black text-orange-600 outline-none focus:border-orange-500" />
+                           <input
+                              name="amount"
+                              type="text"
+                              defaultValue={editingTx?.amount ? (editingTx.amount * 100).toString() : ""}
+                              onChange={handlePriceChange}
+                              placeholder="R$ 0,00"
+                              required
+                              className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-4 text-sm font-black text-orange-600 outline-none focus:border-orange-500"
+                           />
                         </div>
                      </div>
 

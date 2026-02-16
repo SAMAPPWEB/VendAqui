@@ -70,8 +70,8 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     setItems(prev => prev.map(item => {
       if (item.id === id) {
         const newPax = { ...item.pax, [field]: numVal };
-        // Price/Total doesn't change with Pax anymore
-        return { ...item, pax: newPax };
+        // Ensure total always matches unitPrice (Price per Tour, not per Pax)
+        return { ...item, pax: newPax, total: item.unitPrice };
       }
       return item;
     }));

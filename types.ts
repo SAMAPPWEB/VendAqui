@@ -104,26 +104,3 @@ export interface WhiteLabelConfig {
   pixKey?: string;
 }
 
-export interface GeneratedImage {
-  letter: string;
-  image: string;
-  error?: string;
-}
-
-export interface HistoryItem {
-  id: string;
-  textPrompt: string;
-  stylePrompt: string;
-  imagesData: GeneratedImage[];
-}
-
-export type ImageModel =
-  | 'gemini-3-pro-image-preview'
-  | 'gemini-2.5-flash-image'
-  | 'imagen-4.0-generate-001';
-
-export const IMAGE_MODEL_OPTIONS: { id: ImageModel; name: string }[] = [
-  { id: 'gemini-2.5-flash-image', name: 'Gemini 2.5 Flash (Fast)' },
-  { id: 'gemini-3-pro-image-preview', name: 'Gemini 3 Pro (High Quality)' },
-  { id: 'imagen-4.0-generate-001', name: 'Imagen 4 (Creative)' },
-];

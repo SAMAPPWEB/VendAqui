@@ -175,7 +175,7 @@ const App: React.FC = () => {
     if (currentUser?.role === 'CLIENTE') return <ClientPortalView clientName={currentUser.nome} onLogout={handleLogout} />;
     switch (currentView) {
       case 'DASHBOARD': return <DashboardView user={currentUser!} bookings={bookings} clients={clients} transactions={transactions} tours={tours} />;
-      case 'BOOKINGS': return <BookingsView config={whiteLabel} bookings={bookings} setBookings={setBookings} clients={clients} onUpdateClients={setClients} />;
+      case 'BOOKINGS': return <BookingsView config={whiteLabel} bookings={bookings} setBookings={setBookings} clients={clients} onUpdateClients={setClients} tours={tours} />;
       case 'BUDGETS': return <BudgetsView config={whiteLabel} budgets={budgets} setBudgets={setBudgets} user={currentUser!} clients={clients} onUpdateClients={setClients} tours={tours} />;
       case 'FINANCIAL': return <FinancialView transactions={transactions} onUpdateTransactions={setTransactions} currentUser={currentUser!} />;
       case 'TOURS': return <ToursView tours={tours} onUpdateTours={setTours} />;

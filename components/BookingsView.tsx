@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { Plus, MagnifyingGlass, WhatsappLogo, X, CheckCircle, Trash, FilePdf, QrCode, CreditCard, Bank, CircleNotch, CaretLeft, CaretRight, CalendarPlus, NotePencil, ClockCounterClockwise } from "phosphor-react";
+import { Plus, MagnifyingGlass, WhatsappLogo, X, CheckCircle, Trash, FilePdf, QrCode, CreditCard, Bank, CircleNotch, CaretLeft, CaretRight, CalendarPlus, NotePencil, ClockCounterClockwise, PencilSimple } from "phosphor-react";
 import { jsPDF } from "jspdf";
 import { bookingService, clientService } from "../services/databaseService";
-import { User, Booking, Client, WhiteLabelConfig } from "../types";
+import { User, Booking, Client, WhiteLabelConfig, Tour } from "../types";
 
 interface CartItem {
   id: string;
@@ -19,9 +19,10 @@ interface BookingsViewProps {
   setBookings: (bookings: Booking[]) => void;
   clients: Client[];
   onUpdateClients: (clients: Client[]) => void;
+  tours: Tour[];
 }
 
-const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookings, clients, onUpdateClients }) => {
+const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookings, clients, onUpdateClients, tours }) => {
   const [showModal, setShowModal] = useState(false);
   const [modalStep, setModalStep] = useState<'FORM' | 'CHECKOUT' | 'SUCCESS'>('FORM');
   const [search, setSearch] = useState("");
@@ -317,7 +318,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
         )}
 
         {viewMode === 'LIST' && (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredBookings.map(b => (
               <div key={b.id} className="agenda-card bg-white border-gray-100 p-4 space-y-3 shadow-sm">
                 <div className="flex justify-between items-start">
@@ -337,9 +338,8 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                   <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 text-white py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
                     <FilePdf size={16} weight="fill" /> Voucher
                   </button>
-                  <button onClick={() => openEdit(b)} className="p-3 bg-gray-100 text-gray-500 rounded-xl active:scale-95 transition-all">
-                    <Plus size={20} className="rotate-45 hidden" /> {/* Placeholder fallback */}
-                    <span className="text-[8px] font-black">EDITAR</span>
+                  <button onClick={() => openEdit(b)} className="w-12 bg-gray-50 text-gray-400 rounded-xl hover:text-orange-500 hover:bg-orange-50 transition-colors cursor-pointer flex items-center justify-center active:scale-95">
+                    <PencilSimple size={20} weight="bold" />
                   </button>
                   <button onClick={() => handleDelete(b.id)} className="p-3 bg-red-50 text-red-500 rounded-xl active:scale-95 transition-all">
                     <Trash size={20} />
@@ -536,10 +536,34 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                   <div className="bg-orange-50 p-6 rounded-[28px] border border-orange-100 space-y-4">
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-black text-orange-800 uppercase ml-1">Passeio</label>
-                      <select value={tourValue} onChange={e => setTourValue(e.target.value)} className="w-full bg-white border border-orange-200 rounded-xl p-4 text-xs font-bold text-gray-900 uppercase">
+                      <select
+                        value={tourValue}
+                        onChange={e => {
+                          const selectedId = e.target.value;
+                          setTourValue(selectedId); // Armazena o ID ou Título? O original usava Título. Vamos manter Título baseada na lógica antiga
+                          // Mas o original setava o TÍTULO no value. 
+                          // Vamos ajustar para buscar pelo ID se virmos que é ID, ou buscar pelo Título.
+                          // O ideal é buscar pelo ID.
+                          const selectedTour = tours.find(t => t.title === selectedId || t.id === selectedId);
+
+                          if (selectedTour) {
+                            setTourValue(selectedTour.title); // Mantém o valor como Título para compatibilidade com o resto do código
+                            // Auto-fill price
+                            let p = selectedTour.price.toString();
+                            let raw = p.replace(/\D/g, "");
+                            if (!p.includes('.') && !p.includes(',')) raw += "00";
+                            const formatted = formatCurrency(raw);
+                            setPriceValue(formatted);
+                          } else {
+                            setTourValue(selectedId);
+                          }
+                        }}
+                        className="w-full bg-white border border-orange-200 rounded-xl p-4 text-xs font-bold text-gray-900 uppercase"
+                      >
                         <option value="">SELECIONE UM ROTEIRO...</option>
-                        <option value="RECIFE DE FORA PRIVATIVO">RECIFE DE FORA PRIVATIVO</option>
-                        <option value="TRANCOSO & ESPELHO VIP">TRANCOSO & ESPELHO VIP</option>
+                        {tours.map(t => (
+                          <option key={t.id} value={t.title}>{t.title} - {t.price}</option>
+                        ))}
                       </select>
                     </div>
                     <div className="grid grid-cols-2 gap-4">

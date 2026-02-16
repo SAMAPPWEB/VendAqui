@@ -55,11 +55,10 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     setItems(prev => prev.map(item => {
       if (item.id === id) {
         const newItem = { ...item, ...updates };
-        const price = parseCurrency(newItem.unitPrice);
-        // Calculate Total based on ADL + CHD (Free is excluded from price but kept in record)
-        const payingPax = (newItem.pax.adl || 0) + (newItem.pax.chd || 0);
-        const total = (price * payingPax).toFixed(2).replace(".", ",");
-        return { ...newItem, total: formatCurrency(total.replace(",", "")) };
+        // User request: Pax is irrelevant for price. Total is just the Unit Price.
+        // "valerá o valor registrado no cadastro de Catálogo"
+        const price = newItem.unitPrice;
+        return { ...newItem, total: price };
       }
       return item;
     }));
@@ -71,10 +70,8 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     setItems(prev => prev.map(item => {
       if (item.id === id) {
         const newPax = { ...item.pax, [field]: numVal };
-        const price = parseCurrency(item.unitPrice);
-        const payingPax = (newPax.adl || 0) + (newPax.chd || 0);
-        const total = (price * payingPax).toFixed(2).replace(".", ",");
-        return { ...item, pax: newPax, total: formatCurrency(total.replace(",", "")) };
+        // Price/Total doesn't change with Pax anymore
+        return { ...item, pax: newPax };
       }
       return item;
     }));
@@ -367,9 +364,9 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Total</p>
                   <p className="text-lg font-black text-gray-900">R$ {b.totalAmount}</p>
                   <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full mt-1 inline-block ${b.status === 'APROVADO' ? 'bg-green-100 text-green-600' :
-                      b.status === 'CANCELADO' ? 'bg-red-100 text-red-600' :
-                        b.status === 'ENVIADO' ? 'bg-blue-100 text-blue-600' :
-                          'bg-yellow-100 text-yellow-600'
+                    b.status === 'CANCELADO' ? 'bg-red-100 text-red-600' :
+                      b.status === 'ENVIADO' ? 'bg-blue-100 text-blue-600' :
+                        'bg-yellow-100 text-yellow-600'
                     }`}>
                     {b.status}
                   </span>

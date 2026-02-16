@@ -342,7 +342,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
       <div className="space-y-6 animate-slide">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-black tracking-tight text-gray-900 uppercase leading-none">Agenda</h2>
+            <h2 className="text-2xl font-black tracking-tight text-gray-900 uppercase leading-none">Agendamentos</h2>
             <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">Controle de Saídas</p>
           </div>
           <button onClick={() => {
@@ -429,12 +429,19 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
               <div key={b.id} className="agenda-card bg-white border-gray-100 p-4 space-y-3 shadow-sm">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h4 className="font-black text-sm text-gray-900 uppercase leading-none">{b.client}</h4>
-                    <p className="text-[10px] text-orange-600 font-bold mt-1 uppercase tracking-tight">{b.tour}</p>
+                    <div className="mb-1">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
+                        {b.bookingNumber || `#${b.id}`}
+                      </span>
+                    </div>
+                    <h4 className="font-black text-sm text-gray-900 uppercase leading-none mb-1">{b.client}</h4>
+                    <p className="text-[10px] text-orange-600 font-bold uppercase tracking-tight">{b.tour}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-black text-gray-400 uppercase">{formatDateLong(b.date)}</p>
-                    <p className="text-sm font-black text-gray-900">R$ {b.price}</p>
+                    <p className="text-sm font-black text-gray-900">
+                      {parseFloat(b.price.replace(/[^\d,]/g, '').replace(',', '.')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -682,6 +689,21 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                         <input value={priceValue} onChange={handlePriceInput} placeholder="0,00" className="w-full bg-white border border-orange-200 rounded-xl p-4 text-xs font-black text-orange-600" />
                       </div>
                     </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[8px] font-black text-orange-800 uppercase ml-1">ADL</label>
+                        <input type="number" min="0" value={paxInput.adl} onChange={e => setPaxInput({ ...paxInput, adl: parseInt(e.target.value) || 0 })} className="w-full bg-white border border-orange-200 rounded-xl p-3 text-xs font-bold text-center" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[8px] font-black text-orange-800 uppercase ml-1">CHD</label>
+                        <input type="number" min="0" value={paxInput.chd} onChange={e => setPaxInput({ ...paxInput, chd: parseInt(e.target.value) || 0 })} className="w-full bg-white border border-orange-200 rounded-xl p-3 text-xs font-bold text-center" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[8px] font-black text-orange-800 uppercase ml-1">FREE</label>
+                        <input type="number" min="0" value={paxInput.free} onChange={e => setPaxInput({ ...paxInput, free: parseInt(e.target.value) || 0 })} className="w-full bg-white border border-orange-200 rounded-xl p-3 text-xs font-bold text-center" />
+                      </div>
+                    </div>
+
                     <button type="button" onClick={addToCart} className="w-full py-4 bg-orange-500 text-white rounded-2xl text-[11px] font-black uppercase shadow-lg shadow-orange-500/20 active:scale-95 transition-all">
                       Incluir no Agendamento
                     </button>

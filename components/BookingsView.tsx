@@ -43,6 +43,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
   const [tourValue, setTourValue] = useState("");
   const [dateValue, setDateValue] = useState("");
   const [priceValue, setPriceValue] = useState("");
+  const [paxInput, setPaxInput] = useState({ adl: 1, chd: 0, free: 0 });
 
   const [showClientAdd, setShowClientAdd] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
@@ -89,12 +90,13 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
       id: Date.now().toString(),
       tour: tourValue.toUpperCase(),
       date: dateValue,
-      pax: { adl: 1, chd: 0, free: 0 },
+      pax: { ...paxInput },
       price: priceValue,
       observation: ""
     };
     setCart(prev => [...prev, newItem]);
     setTourValue(""); setDateValue(""); setPriceValue("");
+    setPaxInput({ adl: 1, chd: 0, free: 0 });
   };
 
   const confirmAndPay = async () => {
@@ -106,19 +108,14 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
 
       // --- CONFLICT DETECTION & ID GENERATION PRE-CHECK ---
       for (const item of cart) {
-        // Simple conflict check: same tour (implied time/resource) on same date?
-        // Or strictly Time if we had it. Since we don't have explicit time input yet, we rely on Tour + Date.
-        // User requested: "Não poderão constar agendamentos para o mesmo horário e data".
-        // Use implicit time from Tour Title if available, otherwise just warn on same Tour+Date.
         const isConflict = bookings.some(b =>
           b.date === item.date &&
-          b.tour === item.tour && // Assuming Tour defines the "Time/Slot"
+          b.tour === item.tour &&
           b.status !== 'CANCELADO'
         );
 
         if (isConflict) {
           alert(`ALERTA DE CONFLITO:\nJá existe um agendamento para ${item.tour} em ${formatDateLong(item.date)}.\nVerifique antes de prosseguir.`);
-          // For now we allow proceeding but warn. Or should we block? User said "showing popup alert".
           if (!confirm("Deseja prosseguir mesmo com o conflito?")) {
             setIsProcessing(false);
             return;
@@ -126,12 +123,11 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
         }
       }
 
-      // Generate ID logic (Simple increment for now, ideally backend does this)
+      // Generate ID logic
       const lastId = bookings.length > 0 ? bookings.length : 0;
       let nextIdCount = lastId + 1;
 
       if (editingBooking) {
-        // Handle single edit (simplified for now as only 1 item in edit mode)
         const item = cart[0];
         const updated = await bookingService.update(editingBooking.id, {
           clientId: finalClientId,
@@ -200,6 +196,15 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
       price: b.price,
       observation: b.observation || ""
     }]);
+
+    // Set Pax Input for valid editing if user wants to change it (though cart logic might need tweak to reflect back to inputs if we edited cart item directly? 
+    // Simplified: We don't populate the "Add to Cart" inputs when editing an existing Booking, we populate the Cart. 
+    // But if we want to allow editing the "Item" parameters, we should ideally populate the inputs too if we treat it as single-item edit.
+    // For now, let's populate inputs too for better UX in single-edit mode.
+    setPaxInput(b.pax || { adl: 1, chd: 0, free: 0 });
+    setTourValue(b.tour);
+    setDateValue(b.date);
+    setPriceValue(b.price);
 
     setPaymentMethod(b.paymentMethod || "PIX");
     setModalStep('FORM');

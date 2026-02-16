@@ -211,7 +211,62 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     setShowModal(true);
   };
 
-  // ... (keeping other handlers like handleQuickClientCreate, handleDelete, handleWhatsAppShare)
+  const handleWhatsAppShare = (b: Booking) => {
+    const text = `Olá ${b.client}, aqui está o seu voucher para ${b.tour} no dia ${formatDateLong(b.date)}. Valor: R$ ${b.price}. Status: ${b.status}`;
+    const url = `https://wa.me/55${b.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
+  const handleDelete = async (id: string | number) => {
+    if (confirm("Tem certeza que deseja excluir este agendamento?")) {
+      try {
+        await bookingService.delete(id);
+        setBookings(bookings.filter(b => b.id !== id));
+      } catch (error) {
+        console.error("Erro ao excluir:", error);
+        alert("Erro ao excluir agendamento.");
+      }
+    }
+  };
+
+  const handleQuickClientCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessing(true);
+    const formData = new FormData(e.target as HTMLFormElement);
+    const nome = formData.get("nome") as string;
+    const whatsapp = formData.get("whatsapp") as string;
+    const endereco = formData.get("endereco") as string;
+
+    if (!nome || !whatsapp) {
+      alert("Preencha nome e whatsapp.");
+      setIsProcessing(false);
+      return;
+    }
+
+    try {
+      const newClient = await clientService.create({
+        nome: nome.toUpperCase(),
+        whatsapp: whatsapp.toUpperCase(),
+        email: "",
+        endereco: endereco ? endereco.toUpperCase() : "",
+        senhaPortal: "123456",
+        dataAtivacao: new Date().toISOString(),
+        status: 'ATIVO'
+      });
+      onUpdateClients([newClient, ...clients]);
+      setSelectedClient(newClient);
+      setClientName(newClient.nome);
+      setWhatsappValue(newClient.whatsapp);
+      setHotelSearch(newClient.endereco);
+      setShowClientAdd(false);
+      setClientSearch("");
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao cadastrar cliente.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleGeneratePDF = async (b: Booking) => {
     const doc = new jsPDF({

@@ -182,6 +182,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, bookings, clients, 
 
 const TourItem = ({ title, time, pax, client, location, confirmed: initialConfirmed }: any) => {
   const [confirmed, setConfirmed] = useState(initialConfirmed);
+
+  // Calculate total pax safely handling both object and number (legacy)
+  const totalPax = typeof pax === 'object' && pax !== null
+    ? (pax.adl || 0) + (pax.chd || 0) + (pax.free || 0)
+    : Number(pax) || 0;
+
   return (
     <div
       onClick={() => setConfirmed(!confirmed)}
@@ -201,7 +207,7 @@ const TourItem = ({ title, time, pax, client, location, confirmed: initialConfir
         </div>
       </div>
       <div className="flex flex-col items-end gap-1">
-        <span className="text-[9px] font-black text-gray-400 px-1.5 py-0.5 bg-gray-50 rounded border border-gray-100">{pax} PAX</span>
+        <span className="text-[9px] font-black text-gray-400 px-1.5 py-0.5 bg-gray-50 rounded border border-gray-100">{totalPax} PAX</span>
         {confirmed ? (
           <CheckCircle size={18} className="text-orange-500" weight="fill" />
         ) : (

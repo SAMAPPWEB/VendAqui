@@ -494,12 +494,18 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                   <div>
                     <div className="mb-1">
                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
-                        {/* Format ID as Agend.0001 if not already */}
-                        {b.bookingNumber ? b.bookingNumber.replace("#", "") : `Agend.${String(b.id).padStart(4, '0')}`}
+                        {/* ID Format: Use bookingNumber (remove #) or fallback to shortened ID */}
+                        {b.bookingNumber ? b.bookingNumber.replace("#", "") : `Agend.${b.id.toString().slice(-4)}`}
                       </span>
                     </div>
                     <h4 className="font-black text-sm text-gray-900 uppercase leading-none mb-1">{b.client}</h4>
                     <p className="text-[10px] text-orange-600 font-bold uppercase tracking-tight">{b.tour}</p>
+                    {/* PAX INFO */}
+                    <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">
+                      {typeof b.pax === 'object'
+                        ? `${b.pax.adl} ADL | ${b.pax.chd} CHD | ${b.pax.free} FREE`
+                        : `${b.pax} PAX`}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-black text-gray-400 uppercase">{formatDateLong(b.date)}</p>

@@ -124,10 +124,10 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, onUpdateTasks }) => {
               {new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(viewDate)}
             </h3>
             <div className="flex gap-2">
-              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} className="p-2 bg-gray-50 border border-gray-100 rounded-xl">
+              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} className="p-2 bg-gray-50 border border-gray-100 rounded-none">
                 <CaretLeft size={20} weight="bold" />
               </button>
-              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} className="p-2 bg-gray-50 border border-gray-100 rounded-xl">
+              <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} className="p-2 bg-gray-50 border border-gray-100 rounded-none">
                 <CaretRight size={20} weight="bold" />
               </button>
             </div>
@@ -135,7 +135,7 @@ const TasksView: React.FC<TasksViewProps> = ({ tasks, onUpdateTasks }) => {
 
           <div className="grid grid-cols-7 gap-1.5">
             {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-              <button key={day} onClick={() => setSelectedDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), day))} className={`h-10 w-full rounded-xl text-[11px] font-black transition-all ${selectedDate.getDate() === day ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
+              <button key={day} onClick={() => setSelectedDate(new Date(viewDate.getFullYear(), viewDate.getMonth(), day))} className={`h-10 w-full rounded-none text-[11px] font-black transition-all ${selectedDate.getDate() === day ? 'bg-orange-500 text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}>
                 {day}
               </button>
             ))}

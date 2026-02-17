@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Plus, MagnifyingGlass, FilePdf, X, CheckCircle, Receipt, TrashSimple, PencilSimple, Trash, CaretDown, UserPlus, WhatsappLogo } from "phosphor-react";
+import { Plus, MagnifyingGlass, FilePdf, X, CheckCircle, Receipt, TrashSimple, PencilSimple, Trash, CaretDown, UserPlus, WhatsappLogo, CalendarPlus, ClockCounterClockwise } from "phosphor-react";
 import { jsPDF } from "jspdf";
 import { WhiteLabelConfig, Budget, BudgetItem, User, Client, Tour } from "../types";
 import { budgetService, clientService, bookingService } from "../services/databaseService";
@@ -38,9 +38,10 @@ interface BudgetsViewProps {
   clients: Client[];
   onUpdateClients: (clients: Client[]) => void;
   tours: Tour[];
+  users: User[];
 }
 
-const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, user, clients, onUpdateClients, tours }) => {
+const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, user, clients, onUpdateClients, tours, users }) => {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
@@ -60,6 +61,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
   ]);
 
   const [budgetStatus, setBudgetStatus] = useState<'PENDENTE' | 'ENVIADO' | 'APROVADO' | 'CANCELADO'>('PENDENTE');
+  const [filterStatus, setFilterStatus] = useState("");
 
   const formatCurrency = (value: string) => {
     const clean = value.replace(/\D/g, "");
@@ -99,8 +101,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
   const validateDate = (date: string, itemId: string) => {
     if (!date) return true;
 
-    // 1. Retrospective Check
-    const selectedDate = new Date(date + "T00:00:00"); // Force local time
+    const selectedDate = new Date(date + "T00:00:00");
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -110,18 +111,9 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
       return false;
     }
 
-    // 2. Double Booking Check (Same Client + Same Date)
-    // Rules: 
-    // - One day tour per day allowed.
-    // - Night tour is exception (can have day + night, or multiple nights maybe?)
-    // - Assuming: If I have a Day tour, I cannot add another Day tour. If I have a Night tour, I can add anything? Or if I have a Day, I can add Night?
-    // - User said: "Impedir... a não ser que seja um passeio Noturno".
-    // - Interp: Conflict if (Existing NOT Night AND New NOT Night).
-
     const currentItem = items.find(i => i.id === itemId);
     const currentIsNight = currentItem ? isNightTour(currentItem.description) : false;
 
-    // Check against other items in THIS budget
     const conflictInBudget = items.some(i =>
       i.id !== itemId &&
       i.date === date &&
@@ -135,7 +127,20 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
       return false;
     }
 
-    // Check against OTHER budgets for this client (if we have clientName)
+    const isDiurnal = !isNightTour(currentItem ? currentItem.description : "");
+    if (isDiurnal) {
+      const conflictInAnyBudget = budgets.some(b =>
+        b.status !== 'CANCELADO' &&
+        b.status !== 'REJEITADO' &&
+        b.items.some(i => i.date === date && !isNightTour(i.description))
+      );
+
+      if (conflictInAnyBudget) {
+        playErrorSound();
+        alert("⚠️ ATENÇÃO: Já existe um orçamento DIURNO para esta data.\n(Lembre-se: O guia possui agenda única).");
+      }
+    }
+
     if (clientName) {
       const conflictInOtherBudgets = budgets.some(b =>
         b.clientName.toUpperCase() === clientName.toUpperCase() &&
@@ -273,7 +278,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
           try {
             for (const item of items) {
               await bookingService.create({
-                clientId: finalClientId || editingBudget.clientName, // Fallback if no ID
+                clientId: finalClientId || null,
                 client: upperName,
                 whatsapp: upperWhatsapp,
                 tour: item.description,
@@ -302,7 +307,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
           try {
             for (const item of items) {
               await bookingService.create({
-                clientId: finalClientId || created.id, // Trying to get ID
+                clientId: finalClientId || null,
                 client: upperName,
                 whatsapp: upperWhatsapp,
                 tour: item.description,
@@ -359,22 +364,23 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     setNotes(b.notes);
     setHotelSearch(b.hotel || "");
 
-    // Improved Mapping
-    const mappedItems = b.items.map(i => {
-      // Logic to resolve Total:
-      // If unitPrice exists, use it (new rule).
-      // If unitPrice is empty/invalid, FALLBACK to existing total (legacy support).
-      const priceSource = (i.unitPrice && i.unitPrice !== "0,00" && i.unitPrice !== "")
+    // Improved Mapping with defensive checks
+    const mappedItems = (b.items && b.items.length > 0) ? b.items.map(i => {
+      // Logic to resolve Total/UnitPrice:
+      // If unitPrice exists and is valid, use it.
+      // If not, fallback to total (legacy).
+      // Ensure we have a string.
+      const rawPrice = (i.unitPrice && i.unitPrice !== "0,00" && i.unitPrice !== "")
         ? i.unitPrice
-        : i.total;
+        : (i.total || "");
 
       return {
         ...i,
-        pax: typeof i.pax === 'number' ? { adl: i.pax, chd: 0, free: 0 } : i.pax,
-        unitPrice: priceSource,
-        total: priceSource
+        pax: typeof i.pax === 'number' ? { adl: i.pax, chd: 0, free: 0 } : (i.pax || { adl: 1, chd: 0, free: 0 }),
+        unitPrice: rawPrice,
+        total: rawPrice // Force total to match unitPrice on load
       };
-    });
+    }) : [{ id: '1', description: '', pax: { adl: 1, chd: 0, free: 0 }, unitPrice: '', total: '', date: '' }];
     setItems(mappedItems);
     setBudgetStatus(b.status as any || 'PENDENTE');
     setShowModal(true);
@@ -528,7 +534,11 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     doc.save(`Proposta_${b.budgetNumber}.pdf`);
   };
 
-  const filteredBudgets = budgets.filter(b => b.clientName.toLowerCase().includes(search.toLowerCase()) || b.budgetNumber.includes(search));
+  const filteredBudgets = budgets.filter(b => {
+    const matchesSearch = b.clientName.toLowerCase().includes(search.toLowerCase()) || b.budgetNumber.includes(search);
+    const matchesStatus = !filterStatus || b.status === filterStatus;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div className="px-6 pb-20">
@@ -540,89 +550,126 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
           </div>
           <button
             onClick={() => { resetForm(); setShowModal(true); }}
-            className="w-14 h-14 bg-orange-500 rounded-3xl flex items-center justify-center shadow-lg active:scale-90 transition-transform cursor-pointer"
+            className="w-14 h-14 bg-orange-500 rounded-none flex items-center justify-center shadow-lg active:scale-90 transition-transform cursor-pointer"
           >
             <Plus size={28} color="#FFFFFF" weight="bold" />
           </button>
         </div>
 
-        <div className="relative">
-          <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value.toUpperCase())}
-            placeholder="Pesquisar..."
-            className="w-full bg-white border border-gray-200 rounded-[20px] py-4 pl-12 pr-4 text-sm focus:border-orange-500 outline-none shadow-sm font-bold uppercase"
-          />
+        <div className="bg-white p-6 rounded-none border border-gray-100 shadow-sm space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[200px] relative">
+              <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value.toUpperCase())} placeholder="CLIENTE OU Nº ORÇAMENTO..." className="w-full bg-gray-50 border border-transparent rounded-none py-3 pl-12 pr-4 text-xs font-bold focus:bg-white focus:border-orange-500 outline-none transition-all uppercase" />
+            </div>
+            <div className="flex-1 min-w-[150px]">
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full bg-gray-50 border border-transparent rounded-none py-3 px-4 text-xs font-bold focus:bg-white focus:border-orange-500 outline-none transition-all uppercase">
+                <option value="">TODOS STATUS</option>
+                <option value="PENDENTE">PENDENTE</option>
+                <option value="ENVIADO">ENVIADO</option>
+                <option value="APROVADO">APROVADO</option>
+                <option value="CANCELADO">CANCELADO</option>
+                <option value="REJEITADO">REJEITADO</option>
+              </select>
+            </div>
+            <button
+              onClick={() => { setSearch(""); setFilterStatus(""); }}
+              className="px-6 py-3 bg-gray-100 text-gray-500 rounded-none text-[10px] font-black uppercase hover:bg-gray-200 transition-all"
+            >
+              Limpar Filtros
+            </button>
+          </div>
         </div>
 
-        {/* GRID LAYOUT (Replacing List) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredBudgets.map(b => {
-            // Calculate Summary Data
-            const totalPax = b.items.reduce((acc, item) => {
-              const p = item.pax;
-              if (typeof p === 'number') return acc + p;
-              return acc + (Number(p.adl) || 0) + (Number(p.chd) || 0) + (Number(p.free) || 0);
-            }, 0);
-            const tourNames = b.items.map(i => i.description || "Item sem nome").join(", ");
+        <div className="bg-white rounded-none overflow-hidden border border-gray-100 shadow-sm overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-orange-500 text-white">
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400">Orçamento</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400">Cliente / Whats</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400">Passeios Incluídos</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400 text-center">Pax Total</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400 text-right">Total</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400 text-center">Status</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filteredBudgets.map(b => {
+                const totalPax = b.items.reduce((acc, item) => {
+                  const p = item.pax;
+                  if (typeof p === 'number') return acc + p;
+                  return acc + (Number(p.adl) || 0) + (Number(p.chd) || 0);
+                }, 0);
+                const tourNames = b.items.map(i => i.description || "PASSEIO").join(", ");
 
-            return (
-              <div key={b.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all group relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
-                <div className="pl-3">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-black text-gray-900 uppercase text-sm leading-tight truncate pr-2">{b.clientName}</h3>
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 whitespace-nowrap">
-                      Nº {b.budgetNumber}
-                    </span>
-                  </div>
+                const statusColors = {
+                  'PENDENTE': 'bg-orange-100 text-orange-600',
+                  'ENVIADO': 'bg-blue-100 text-blue-600',
+                  'APROVADO': 'bg-green-100 text-green-600',
+                  'CANCELADO': 'bg-red-100 text-red-600',
+                  'VENCIDO': 'bg-gray-100 text-gray-500',
+                  'REJEITADO': 'bg-gray-200 text-gray-700'
+                };
 
-                  <div className="mb-4 space-y-2">
-                    <div>
-                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Resumo do Pacote</p>
-                      <p className="text-[10px] font-bold text-gray-700 uppercase line-clamp-2">{tourNames || "Sem itens"}</p>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase mt-0.5">{totalPax} Pax (Total)</p>
-                    </div>
-
-                    <div>
-                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Valor Total</p>
-                      <p className="text-lg font-black text-gray-900">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseCurrency(b.totalAmount))}
+                return (
+                  <tr key={b.id} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="px-6 py-4">
+                      <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                        #{b.budgetNumber}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="text-xs font-black text-gray-900 uppercase leading-none">{b.clientName}</p>
+                        <p className="text-[10px] text-gray-400 font-bold mt-1">{b.clientWhatsapp}</p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 max-w-[250px]">
+                      <p className="text-[10px] font-bold text-gray-700 uppercase leading-tight truncate" title={tourNames}>
+                        {tourNames}
                       </p>
-                    </div>
-
-                    <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full mt-1 inline-block ${b.status === 'APROVADO' ? 'bg-green-100 text-green-600' :
-                      b.status === 'CANCELADO' ? 'bg-red-100 text-red-600' :
-                        b.status === 'ENVIADO' ? 'bg-blue-100 text-blue-600' :
-                          'bg-yellow-100 text-yellow-600'
-                      }`}>
-                      {b.status}
-                    </span>
-                  </div>
-
-                  <div className="flex gap-2 mt-auto">
-                    <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-2 rounded-xl flex items-center justify-center gap-2 transition-colors active:scale-95">
-                      <FilePdf size={16} weight="bold" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">PDF</span>
-                    </button>
-                    <button onClick={() => openEdit(b)} className="w-10 h-10 bg-gray-50 text-gray-400 rounded-xl flex items-center justify-center hover:bg-gray-100 hover:text-orange-500 transition-colors">
-                      <PencilSimple size={18} weight="bold" />
-                    </button>
-                    <button onClick={async () => {
-                      if (confirm("Excluir orçamento?")) {
-                        await budgetService.delete(b.id);
-                        setBudgets(budgets.filter(x => x.id !== b.id));
-                      }
-                    }} className="w-10 h-10 bg-red-50 text-red-400 rounded-xl flex items-center justify-center hover:bg-red-100 hover:text-red-500 transition-colors">
-                      <Trash size={18} weight="bold" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="text-[10px] font-black text-gray-700">{totalPax}</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <p className="text-[11px] font-black text-gray-900">R$ {b.totalAmount}</p>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-full whitespace-nowrap ${statusColors[b.status] || 'bg-gray-100 text-gray-500'}`}>
+                        {b.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleGeneratePDF(b)} className="p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors" title="Gerar PDF">
+                          <FilePdf size={16} weight="bold" />
+                        </button>
+                        <button onClick={() => openEdit(b)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors" title="Editar">
+                          <PencilSimple size={16} weight="bold" />
+                        </button>
+                        <button onClick={async () => {
+                          if (confirm("Excluir orçamento?")) {
+                            await budgetService.delete(b.id);
+                            setBudgets(budgets.filter(x => x.id !== b.id));
+                          }
+                        }} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors" title="Excluir">
+                          <Trash size={16} weight="bold" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {filteredBudgets.length === 0 && (
+            <div className="py-20 text-center opacity-30 flex flex-col items-center">
+              <CalendarPlus size={48} className="mb-2" />
+              <p className="text-[10px] font-black uppercase tracking-widest">Nenhum orçamento localizado</p>
+            </div>
+          )}
         </div>
       </div>
 

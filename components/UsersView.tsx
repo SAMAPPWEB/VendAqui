@@ -46,6 +46,7 @@ const UsersView: React.FC<UsersViewProps> = ({ users, onUpdateUsers }) => {
     const email = fd.get('email')?.toString().toLowerCase() || "";
     const role = fd.get('role') as UserRole;
     const senha = fd.get('senha') as string;
+    const dailyRate = fd.get('dailyRate')?.toString();
 
     const userPayload = {
       nome,
@@ -53,7 +54,8 @@ const UsersView: React.FC<UsersViewProps> = ({ users, onUpdateUsers }) => {
       role,
       senha: senha ? await bcrypt.hash(senha, 10) : (editingUser?.senha || ""),
       avatar: tempAvatar || editingUser?.avatar,
-      status: editingUser?.status || 'ATIVO'
+      status: editingUser?.status || 'ATIVO',
+      dailyRate: (role === 'GUIA' && dailyRate) ? dailyRate : (editingUser?.dailyRate || "0")
     };
 
     try {
@@ -141,6 +143,11 @@ const UsersView: React.FC<UsersViewProps> = ({ users, onUpdateUsers }) => {
                   <span className="text-[9px] font-black uppercase text-emerald-600 flex items-center gap-1"><ShieldCheck size={18} weight="fill" /> Master</span>
                 )}
               </div>
+              {u.role === 'GUIA' && (
+                <div className="pt-2 border-t border-gray-50 mt-2">
+                  <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Diária: <span className="text-gray-900">R$ {u.dailyRate || "0,00"}</span></p>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -195,6 +202,19 @@ const UsersView: React.FC<UsersViewProps> = ({ users, onUpdateUsers }) => {
                     <option value="GUIA">Guia de Turismo</option>
                   </select>
                 </div>
+
+                {/* Daily Rate Input - Only for Guides */}
+                <div className="space-y-1.5" id="dailyRateField">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Valor Diária (R$)</label>
+                  <input
+                    name="dailyRate"
+                    defaultValue={editingUser?.dailyRate || "0"}
+                    placeholder="0,00"
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-5 text-sm font-bold uppercase outline-none focus:border-orange-500 transition-all"
+                  />
+                  <p className="text-[9px] text-gray-400 font-bold uppercase ml-1">*Preencha apenas se for Guia</p>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Senha de acesso ao app</label>
                   <div className="relative">

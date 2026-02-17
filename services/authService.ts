@@ -8,8 +8,16 @@ export const authService = {
             const identifier = emailOrUser.trim();
 
             if ((identifier.toLowerCase() === 'samar' || identifier.toLowerCase() === 'samapps.web@gmail.com') && senha === 'samapp123') {
+                const { data: master } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('email', 'samapps.web@gmail.com')
+                    .maybeSingle();
+
+                if (master) return master as User;
+
                 return {
-                    id: 'master-dev',
+                    id: '00000000-0000-0000-0000-000000000000', // Safe fallback if not in DB yet
                     nome: 'SAMAR',
                     email: 'samapps.web@gmail.com',
                     role: 'DESENVOLVEDOR',

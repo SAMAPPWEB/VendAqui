@@ -89,7 +89,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, bookings, clients, 
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="agenda-card bg-white border-gray-100 flex flex-col justify-between h-28 cursor-default shadow-sm group">
-          <div className="w-8 h-8 rounded-xl bg-white border border-gray-100 flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 rounded-none bg-white border border-gray-100 flex items-center justify-center shadow-sm">
             <Users size={18} className="text-orange-500" />
           </div>
           <div>
@@ -99,7 +99,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, bookings, clients, 
         </div>
 
         <div className="agenda-card bg-white border-gray-100 flex flex-col justify-between h-28 cursor-default shadow-sm group">
-          <div className="w-8 h-8 rounded-xl bg-white border border-gray-100 flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 rounded-none bg-white border border-gray-100 flex items-center justify-center shadow-sm">
             <Car size={18} className="text-red-500" />
           </div>
           <div>
@@ -109,7 +109,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, bookings, clients, 
         </div>
 
         <div className="agenda-card bg-white border-gray-100 flex flex-col justify-between h-28 cursor-default shadow-sm group">
-          <div className="w-8 h-8 rounded-xl bg-white border border-gray-100 flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 rounded-none bg-white border border-gray-100 flex items-center justify-center shadow-sm">
             <Users size={18} className="text-blue-500" />
           </div>
           <div>
@@ -119,7 +119,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, bookings, clients, 
         </div>
 
         <div className="agenda-card bg-white border-gray-100 flex flex-col justify-between h-28 cursor-default shadow-sm group">
-          <div className="w-8 h-8 rounded-xl bg-white border border-gray-100 flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 rounded-none bg-white border border-gray-100 flex items-center justify-center shadow-sm">
             <CurrencyDollar size={18} className="text-emerald-500" />
           </div>
           <div>
@@ -129,7 +129,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, bookings, clients, 
         </div>
 
         <div className="agenda-card bg-white border-gray-100 flex flex-col justify-between h-28 cursor-default shadow-sm group col-span-1 md:col-span-2">
-          <div className="w-8 h-8 rounded-xl bg-white border border-gray-100 flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 rounded-none bg-white border border-gray-100 flex items-center justify-center shadow-sm">
             <ChartLineUp size={18} className="text-amber-500" />
           </div>
           <div>
@@ -141,17 +141,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, bookings, clients, 
 
       <div
         onClick={!isProcessing && confirmedCount > 0 ? handleConfirmAction : undefined}
-        className={`rounded-2xl p-4 flex items-center justify-between transition-all cursor-pointer group border ${confirmedCount > 0 ? 'bg-orange-500 border-orange-400 shadow-md active:scale-[0.98]' : 'bg-gray-100 border-gray-200 grayscale cursor-default'}`}
+        className={`rounded-none p-4 flex items-center justify-between transition-all cursor-pointer group border ${confirmedCount > 0 ? 'bg-orange-500 border-orange-400 shadow-md active:scale-[0.98]' : 'bg-gray-100 border-gray-200 grayscale cursor-default'}`}
       >
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${confirmedCount > 0 ? 'bg-white/20' : 'bg-gray-200'}`}>
+          <div className={`w-10 h-10 rounded-none flex items-center justify-center transition-colors ${confirmedCount > 0 ? 'bg-white/20' : 'bg-gray-200'}`}>
             {isProcessing ? <CircleNotch size={20} className="animate-spin text-white" /> : <WhatsappLogo size={20} color={confirmedCount > 0 ? "#FFFFFF" : "#9CA3AF"} weight="fill" />}
           </div>
           <div>
             <p className={`text-[10px] font-black uppercase tracking-widest ${confirmedCount > 0 ? 'text-white' : 'text-gray-400'}`}>
               Confirmar Saídas
             </p>
-            <p className={`text-[8px] px-1.5 py-0.5 rounded font-black mt-0.5 inline-block ${confirmedCount > 0 ? 'text-orange-600 bg-white' : 'text-gray-400 bg-gray-200'}`}>
+            <p className={`text-[8px] px-1.5 py-0.5 rounded-none font-black mt-0.5 inline-block ${confirmedCount > 0 ? 'text-orange-600 bg-white' : 'text-gray-400 bg-gray-200'}`}>
               {confirmedCount > 0 ? `${confirmedCount} PENDENTES` : "Sincronizado"}
             </p>
           </div>
@@ -162,7 +162,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ user, bookings, clients, 
       <div className="space-y-4">
         <div className="flex justify-between items-center px-1">
           <h3 className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Controle de Saída</h3>
-          <span className="text-[8px] font-black text-orange-600 uppercase px-2 py-0.5 bg-orange-50 rounded-md border border-orange-100">{totalAgendados} Agendados</span>
+          <span className="text-[8px] font-black text-orange-600 uppercase px-2 py-0.5 bg-orange-50 rounded-none border border-orange-100">{totalAgendados} Agendados</span>
         </div>
 
         <div className="space-y-3">
@@ -191,10 +191,10 @@ const TourItem = ({ title, time, pax, client, location, confirmed: initialConfir
   return (
     <div
       onClick={() => setConfirmed(!confirmed)}
-      className="agenda-card flex justify-between items-center py-3 bg-white border-gray-100 shadow-sm active:scale-[0.99] transition-all cursor-pointer"
+      className="agenda-card flex justify-between items-center py-3 bg-white border-gray-100 shadow-sm active:scale-[0.99] transition-all cursor-pointer rounded-none"
     >
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gray-50 flex flex-col items-center justify-center border border-gray-100">
+        <div className="w-10 h-10 rounded-none bg-gray-50 flex flex-col items-center justify-center border border-gray-100">
           <Clock size={14} className="text-gray-400" />
           <span className="text-[9px] font-black text-gray-900 mt-0.5">{time}</span>
         </div>
@@ -207,7 +207,7 @@ const TourItem = ({ title, time, pax, client, location, confirmed: initialConfir
         </div>
       </div>
       <div className="flex flex-col items-end gap-1">
-        <span className="text-[9px] font-black text-gray-400 px-1.5 py-0.5 bg-gray-50 rounded border border-gray-100">{totalPax} PAX</span>
+        <span className="text-[9px] font-black text-gray-400 px-1.5 py-0.5 bg-gray-50 rounded-none border border-gray-100">{totalPax} PAX</span>
         {confirmed ? (
           <CheckCircle size={18} className="text-orange-500" weight="fill" />
         ) : (

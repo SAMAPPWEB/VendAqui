@@ -109,6 +109,20 @@ export const userService = {
         return adapters.user.toApp(data);
     },
 
+    async upsert(user: Omit<User, 'id'> & { id?: string }): Promise<User> {
+        const dbUser = adapters.user.toDb(user);
+        if (user.id) dbUser.id = user.id;
+
+        const { data, error } = await supabase
+            .from('users')
+            .upsert([dbUser], { onConflict: 'email' })
+            .select()
+            .single();
+
+        if (error) handleDbError(error, 'users.upsert');
+        return adapters.user.toApp(data);
+    },
+
     async update(id: string, updates: Partial<User>): Promise<User> {
         const dbUpdates = adapters.user.toDb(updates);
         const { data, error } = await supabase
@@ -318,15 +332,52 @@ export const budgetService = {
 
     async update(id: string, updates: Partial<Budget>) {
         const dbUpdates = adapters.budget.toDb(updates);
-        const { data, error } = await supabase
+
+        // 1. Atualizar dados básicos do orçamento
+        const { data: budgetData, error: budgetError } = await supabase
             .from('budgets')
             .update(dbUpdates)
             .eq('id', id)
             .select()
             .single();
 
-        if (error) handleDbError(error, 'budgets.update');
-        return adapters.budget.toApp(data);
+        if (budgetError) handleDbError(budgetError, 'budgets.update');
+
+        // 2. Sincronizar Itens
+        if (updates.items) {
+            // Remove itens antigos
+            const { error: deleteError } = await supabase
+                .from('budget_items')
+                .delete()
+                .eq('budget_id', id);
+
+            if (deleteError) handleDbError(deleteError, 'budgets.update.deleteItems');
+
+            // Insere novos itens
+            const items = updates.items.map(item => ({
+                budget_id: id,
+                description: item.description,
+                pax: item.pax,
+                unit_price: typeof item.unitPrice === 'string' ? parseFloat(item.unitPrice.replace(/[^\d,]/g, '').replace(',', '.')) : item.unitPrice,
+                total: typeof item.total === 'string' ? parseFloat(item.total.replace(/[^\d,]/g, '').replace(',', '.')) : item.total
+            }));
+
+            const { error: insertError } = await supabase
+                .from('budget_items')
+                .insert(items);
+
+            if (insertError) handleDbError(insertError, 'budgets.update.insertItems');
+        }
+
+        // 3. Recarregar orçamento completo com itens
+        const { data: finalData, error: reloadError } = await supabase
+            .from('budgets')
+            .select('*, budget_items(*)')
+            .eq('id', id)
+            .single();
+
+        if (reloadError) handleDbError(reloadError, 'budgets.update.reload');
+        return adapters.budget.toApp(finalData);
     },
 
     async delete(id: string) {

@@ -9,6 +9,10 @@ export interface User {
   status: 'ATIVO' | 'INATIVO';
   avatar?: string | null;
   senha?: string;
+  whatsapp?: string;
+  cnpj?: string;
+  endereco?: string;
+  dailyRate?: string | number;
 }
 
 export interface Tour {
@@ -48,9 +52,12 @@ export interface Booking {
   time?: string; // Added for conflict detection
   pax: { adl: number, chd: number, free: number };
   price: string;
-  status: 'PENDENTE' | 'CONFIRMADO' | 'CANCELADO';
+  status: 'PENDENTE' | 'CONFIRMADO' | 'CANCELADO' | 'EM EXECUÇÃO' | 'AGENDADO';
   location: string;
   confirmed: boolean;
+  guideId?: string;
+  guideName?: string;
+  guideRevenue?: string | number;
   observation?: string;
   paymentMethod?: string;
   createdAt?: string;
@@ -106,5 +113,14 @@ export interface WhiteLabelConfig {
   instagram?: string;
   site?: string;
   pixKey?: string;
+}
+
+export interface BookingMedia {
+  id: string;
+  bookingId: string;
+  folderName: string;
+  url: string;
+  filename: string;
+  createdAt?: string;
 }
 

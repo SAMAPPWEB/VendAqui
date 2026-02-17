@@ -107,7 +107,7 @@ const ToursView: React.FC<ToursViewProps> = ({ tours, onUpdateTours }) => {
           </div>
           <button
             onClick={() => { setEditingTour(null); setTempImage(null); setShowForm(true); }}
-            className="w-14 h-14 rounded-3xl bg-orange-500 flex items-center justify-center text-white shadow-lg active:scale-90 transition-all cursor-pointer"
+            className="w-14 h-14 rounded-none bg-orange-500 flex items-center justify-center text-white shadow-lg active:scale-90 transition-all cursor-pointer"
           >
             <Plus size={28} weight="bold" />
           </button>
@@ -115,7 +115,7 @@ const ToursView: React.FC<ToursViewProps> = ({ tours, onUpdateTours }) => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {tours.map(tour => (
-            <div key={tour.id} className="agenda-card p-0 overflow-hidden bg-white border border-gray-100 shadow-sm relative group flex flex-col md:flex-row h-full rounded-[32px]">
+            <div key={tour.id} className="agenda-card p-0 overflow-hidden bg-white border border-gray-100 shadow-sm relative group flex flex-col md:flex-row h-full rounded-none">
               {/* Lado Esquerdo: Foto */}
               <div className="relative h-48 md:h-auto md:w-2/5 shrink-0 overflow-hidden">
                 <img src={tour.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -131,10 +131,10 @@ const ToursView: React.FC<ToursViewProps> = ({ tours, onUpdateTours }) => {
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="text-xl font-black text-gray-900 uppercase leading-tight tracking-tighter">{tour.title}</h3>
                     <div className="flex gap-1">
-                      <button onClick={(e) => { e.stopPropagation(); setEditingTour(tour); setTempImage(tour.image); setShowForm(true); }} className="p-2 bg-gray-50 rounded-lg text-gray-400 hover:text-orange-500 transition-colors cursor-pointer">
+                      <button onClick={(e) => { e.stopPropagation(); setEditingTour(tour); setTempImage(tour.image); setShowForm(true); }} className="p-2 bg-gray-50 rounded-none text-gray-400 hover:text-orange-500 transition-colors cursor-pointer">
                         <PencilSimple size={18} weight="bold" />
                       </button>
-                      <button onClick={(e) => { e.stopPropagation(); removeTour(tour.id); }} className="p-2 bg-red-50 rounded-lg text-red-500 hover:bg-red-100 transition-colors cursor-pointer">
+                      <button onClick={(e) => { e.stopPropagation(); removeTour(tour.id); }} className="p-2 bg-red-50 rounded-none text-red-500 hover:bg-red-100 transition-colors cursor-pointer">
                         <Trash size={18} weight="bold" />
                       </button>
                     </div>

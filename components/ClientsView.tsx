@@ -104,7 +104,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ clients, onUpdateClients }) =
             <h2 className="text-2xl font-black tracking-tight text-gray-900 uppercase leading-none">Clientes</h2>
             <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">Base Central de Dados</p>
           </div>
-          <button onClick={() => setShowAdd(true)} className="w-14 h-14 bg-orange-500 rounded-3xl flex items-center justify-center shadow-lg active:scale-90 transition-transform cursor-pointer text-white">
+          <button onClick={() => setShowAdd(true)} className="w-14 h-14 bg-orange-500 rounded-none flex items-center justify-center shadow-lg active:scale-90 transition-transform cursor-pointer text-white">
             <Plus size={28} weight="bold" />
           </button>
         </div>
@@ -116,7 +116,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ clients, onUpdateClients }) =
             value={search}
             onChange={(e) => setSearch(e.target.value.toUpperCase())}
             placeholder="Buscar cliente..."
-            className="w-full bg-white border border-gray-200 rounded-[20px] py-4 pl-12 pr-4 text-sm focus:border-orange-500 outline-none shadow-sm font-bold uppercase"
+            className="w-full bg-white border border-gray-200 rounded-none py-4 pl-12 pr-4 text-sm focus:border-orange-500 outline-none shadow-sm font-bold uppercase"
           />
         </div>
 
@@ -139,12 +139,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ clients, onUpdateClients }) =
                       setEditingClient(client);
                       setShowEdit(true);
                     }}
-                    className="p-2.5 bg-gray-50 text-gray-400 rounded-xl hover:text-orange-500 transition-colors cursor-pointer"
+                    className="p-2.5 bg-gray-50 text-gray-400 rounded-none hover:text-orange-500 transition-colors cursor-pointer"
                     title="Alterar Cliente"
                   >
                     <PencilSimple size={20} weight="bold" />
                   </button>
-                  <button onClick={() => handleDelete(client.id)} className="p-2.5 bg-red-50 text-red-400 rounded-xl hover:bg-red-500 hover:text-white transition-all cursor-pointer">
+                  <button onClick={() => handleDelete(client.id)} className="p-2.5 bg-red-50 text-red-400 rounded-none hover:bg-red-500 hover:text-white transition-all cursor-pointer">
                     <Trash size={20} weight="bold" />
                   </button>
                 </div>

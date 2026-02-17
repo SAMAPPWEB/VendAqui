@@ -4,7 +4,8 @@
 
 ### 1. Executar Schema no Supabase
 
-**Status: PENDENTE**
+#### Status: PENDENTE (Banco de Dados)
+
 Você precisa executar o script SQL para criar as tabelas.
 
 1. Vá em [Supabase Dashboard](https://supabase.com/dashboard/project/hryjngpvbcdbxraabqja)
@@ -15,11 +16,11 @@ Você precisa executar o script SQL para criar as tabelas.
 
 ### 2. Instalar Dependências e Rodar
 
-**Status: PENDENTE**
+#### Status: PENDENTE (Ambiente)
 
 ```powershell
 # No terminal do VS Code:
-cd agendaqui
+# Projeto já está na pasta atual
 npm install @supabase/supabase-js
 npm run dev
 ```
@@ -28,7 +29,8 @@ npm run dev
 
 ### 3. Migrar Dados Locais (NOVO!)
 
-**Status: PRONTO PARA USO**
+#### Status: PRONTO PARA USO (Migração)
+
 Adicionei um botão automático para isso!
 
 1. Abra a aplicação rodando (`npm run dev`)

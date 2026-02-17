@@ -12,16 +12,17 @@ import BudgetsView from "./components/BudgetsView";
 import ClientPortalView from "./components/ClientPortalView";
 import FinancialView from "./components/FinancialView";
 import TideWidget from "./components/TideWidget";
+import GuidesView from "./components/GuidesView";
 import {
   Plus, CalendarCheck, Receipt, Wallet, IdentificationBadge, MapTrifold, House,
-  ArrowLeft, SignOut, User as UserIcon, Users as UsersIcon, Bell, X, Warning, CircleNotch, UserCircle, Gear
+  ArrowLeft, SignOut, User as UserIcon, Users as UsersIcon, Bell, X, Warning, CircleNotch, UserCircle, Gear, IdentificationCard
 } from "phosphor-react";
 
 // Import Services
 import { configService, userService, bookingService, clientService, budgetService, transactionService, tourService, taskService } from "./services/databaseService";
 import { authService } from "./services/authService";
 
-export type AppView = 'DASHBOARD' | 'BOOKINGS' | 'TOURS' | 'SETTINGS' | 'TASKS' | 'CLIENTS' | 'USERS' | 'PORTAL' | 'BUDGETS' | 'FINANCIAL';
+export type AppView = 'DASHBOARD' | 'BOOKINGS' | 'TOURS' | 'SETTINGS' | 'TASKS' | 'CLIENTS' | 'USERS' | 'PORTAL' | 'BUDGETS' | 'FINANCIAL' | 'GUIDES';
 
 const DEFAULT_CONFIG: WhiteLabelConfig = {
   logo: null,
@@ -172,18 +173,19 @@ const App: React.FC = () => {
   };
 
   const renderView = () => {
-    if (currentUser?.role === 'CLIENTE') return <ClientPortalView clientName={currentUser.nome} onLogout={handleLogout} />;
+    if (currentUser?.role === 'CLIENTE') return <ClientPortalView clientName={currentUser.nome} clientId={currentUser.id} onLogout={handleLogout} />;
     switch (currentView) {
       case 'DASHBOARD': return <DashboardView user={currentUser!} bookings={bookings} clients={clients} transactions={transactions} tours={tours} />;
-      case 'BOOKINGS': return <BookingsView config={whiteLabel} bookings={bookings} setBookings={setBookings} clients={clients} onUpdateClients={setClients} tours={tours} />;
-      case 'BUDGETS': return <BudgetsView config={whiteLabel} budgets={budgets} setBudgets={setBudgets} user={currentUser!} clients={clients} onUpdateClients={setClients} tours={tours} />;
+      case 'BOOKINGS': return <BookingsView config={whiteLabel} bookings={bookings} setBookings={setBookings} clients={clients} onUpdateClients={setClients} tours={tours} users={users} />;
+      case 'BUDGETS': return <BudgetsView config={whiteLabel} budgets={budgets} setBudgets={setBudgets} user={currentUser!} clients={clients} onUpdateClients={setClients} tours={tours} users={users} />;
       case 'FINANCIAL': return <FinancialView transactions={transactions} onUpdateTransactions={setTransactions} currentUser={currentUser!} />;
       case 'TOURS': return <ToursView tours={tours} onUpdateTours={setTours} />;
       case 'TASKS': return <TasksView tasks={tasks} onUpdateTasks={setTasks} />;
       case 'CLIENTS': return <ClientsView clients={clients} onUpdateClients={setClients} />;
       case 'USERS': return <UsersView users={users} onUpdateUsers={setUsers} />;
+      case 'GUIDES': return <GuidesView currentUser={currentUser!} users={users} onUpdateUsers={setUsers} bookings={bookings} config={whiteLabel} tasks={tasks} onUpdateTasks={setTasks} transactions={transactions} />;
       case 'SETTINGS': return <SettingsView user={currentUser!} config={whiteLabel} onUpdate={handleConfigUpdate} onExit={() => setCurrentView('DASHBOARD')} onLogout={handleLogout} onNavigate={setCurrentView} />;
-      default: return <DashboardView user={currentUser!} />;
+      default: return <DashboardView user={currentUser!} bookings={bookings} clients={clients} transactions={transactions} tours={tours} />;
     }
   };
 
@@ -351,7 +353,7 @@ const App: React.FC = () => {
 
       <div className="flex flex-1 overflow-hidden">
         {!isClient && (
-          <aside className="hidden lg:flex w-64 flex-col bg-white border-r border-gray-200 p-6 space-y-8">
+          <aside className="hidden lg:flex w-64 flex-col bg-[#191919] border-r border-white/5 p-6 space-y-8">
             <div className="space-y-2">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-4">Menu Principal</p>
               <nav className="flex flex-col gap-1">
@@ -372,9 +374,11 @@ const App: React.FC = () => {
                   color={whiteLabel.primaryColor}
                 />
                 <DesktopNavBtn active={currentView === 'CLIENTS'} onClick={() => setCurrentView('CLIENTS')} icon={<UsersIcon size={20} />} label="Clientes" color={whiteLabel.primaryColor} />
+                <DesktopNavBtn active={currentView === 'GUIDES'} onClick={() => setCurrentView('GUIDES')} icon={<IdentificationCard size={20} />} label="Painel de Guias" color={whiteLabel.primaryColor} />
                 <DesktopNavBtn active={currentView === 'TOURS'} onClick={() => setCurrentView('TOURS')} icon={<MapTrifold size={20} />} label="Passeios" color={whiteLabel.primaryColor} />
                 <DesktopNavBtn active={currentView === 'TASKS'} onClick={() => setCurrentView('TASKS')} icon={<IdentificationBadge size={20} />} label="Tarefas" color={whiteLabel.primaryColor} />
-                <DesktopNavBtn active={currentView === 'SETTINGS'} onClick={() => setCurrentView('SETTINGS')} icon={<Gear size={20} />} label="Gestão" color={whiteLabel.primaryColor} />
+                <DesktopNavBtn active={currentView === 'USERS'} onClick={() => setCurrentView('USERS')} icon={<UsersIcon size={20} />} label="Gestão de Equipe" color={whiteLabel.primaryColor} />
+                <DesktopNavBtn active={currentView === 'SETTINGS'} onClick={() => setCurrentView('SETTINGS')} icon={<Gear size={20} />} label="Configurações" color={whiteLabel.primaryColor} />
               </nav>
             </div>
           </aside>
@@ -387,7 +391,7 @@ const App: React.FC = () => {
 
       {!isClient && (
         <div className="fixed bottom-8 left-0 right-0 px-6 z-[80] pointer-events-none lg:hidden">
-          <nav className="glass-nav h-16 rounded-full flex justify-around items-center px-4 shadow-2xl pointer-events-auto max-w-[600px] mx-auto border border-white/50 bg-white/70 backdrop-blur-md overflow-x-auto no-scrollbar">
+          <nav className="glass-nav h-16 rounded-none flex justify-around items-center px-4 shadow-2xl pointer-events-auto max-w-[600px] mx-auto border border-white/10 bg-[#191919] overflow-x-auto no-scrollbar">
             <NavBtn active={currentView === 'DASHBOARD'} onClick={() => setCurrentView('DASHBOARD')} icon={<House size={20} />} label="Início" color={whiteLabel.primaryColor} />
             <NavBtn active={currentView === 'BOOKINGS'} onClick={() => setCurrentView('BOOKINGS')} icon={<CalendarCheck size={20} />} label="Agendamentos" color={whiteLabel.primaryColor} />
             <NavBtn active={currentView === 'BUDGETS'} onClick={() => setCurrentView('BUDGETS')} icon={<Receipt size={20} />} label="Orçamentos" color={whiteLabel.primaryColor} />
@@ -416,23 +420,22 @@ const App: React.FC = () => {
 };
 
 const NavBtn = ({ active, onClick, icon, label, color }: any) => (
-  <button onClick={onClick} className={`flex flex-col items-center justify-center transition-all duration-300 outline-none relative min-w-[55px] h-full ${active ? 'scale-110' : 'opacity-40'}`} style={{ color: active ? color : '#1F2937' }}>
-    <div className={`p-1.5 rounded-full ${active ? 'bg-orange-50 shadow-inner' : ''}`}>
+  <button onClick={onClick} className={`flex flex-col items-center justify-center transition-all duration-300 outline-none relative min-w-[55px] h-full ${active ? 'scale-110' : 'opacity-40'}`} style={{ color: active ? '#F97316' : '#FFFFFF' }}>
+    <div className={`p-1.5 rounded-none ${active ? 'bg-orange-500/10 shadow-inner' : ''}`}>
       {React.cloneElement(icon, { weight: active ? "fill" : "regular" })}
     </div>
-    {active && <span className="text-[6px] font-black uppercase tracking-widest absolute bottom-1 whitespace-nowrap text-orange-600">{label}</span>}
+    {active && <span className="text-[6px] font-black uppercase tracking-widest absolute bottom-1 whitespace-nowrap text-orange-500">{label}</span>}
   </button>
 );
 
 const DesktopNavBtn = ({ active, onClick, icon, label, color }: any) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all duration-300 outline-none w-full ${active ? 'bg-orange-50 text-orange-600 shadow-sm border border-orange-100' : 'text-gray-500 hover:bg-gray-50'}`}
+    className={`w-full flex items-center gap-4 px-5 py-4 rounded-none text-xs font-black uppercase tracking-widest transition-all ${active ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'
+      }`}
   >
-    <div className={`${active ? 'text-orange-600' : 'text-gray-400'}`}>
-      {React.cloneElement(icon, { weight: active ? "fill" : "regular" })}
-    </div>
-    <span className="text-xs font-black uppercase tracking-widest">{label}</span>
+    {React.cloneElement(icon as React.ReactElement, { weight: active ? "bold" : "regular" } as any)}
+    {label}
   </button>
 );
 

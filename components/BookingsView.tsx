@@ -1,8 +1,13 @@
 import React, { useState, useMemo } from "react";
 import { Plus, MagnifyingGlass, WhatsappLogo, X, CheckCircle, Trash, FilePdf, QrCode, CreditCard, Bank, CircleNotch, CaretLeft, CaretRight, CalendarPlus, NotePencil, ClockCounterClockwise, PencilSimple } from "phosphor-react";
 import { jsPDF } from "jspdf";
-import { bookingService, clientService } from "../services/databaseService";
+import { bookingService, clientService, transactionService } from "../services/databaseService";
 import { User, Booking, Client, WhiteLabelConfig, Tour } from "../types";
+
+const isNightTour = (desc: string) => {
+  const d = desc.toUpperCase();
+  return d.includes("BY NIGHT") || d.includes("PASSARELA DO") || d.includes("PASSARELA") || d.includes("NOTURNO");
+};
 
 interface CartItem {
   id: string;
@@ -11,6 +16,7 @@ interface CartItem {
   pax: { adl: number, chd: number, free: number };
   price: string;
   observation: string;
+  time?: string;
 }
 
 interface BookingsViewProps {
@@ -20,21 +26,28 @@ interface BookingsViewProps {
   clients: Client[];
   onUpdateClients: (clients: Client[]) => void;
   tours: Tour[];
+  users: User[];
 }
 
-const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookings, clients, onUpdateClients, tours }) => {
+const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookings, clients, onUpdateClients, tours, users }) => {
   const [showModal, setShowModal] = useState(false);
   const [modalStep, setModalStep] = useState<'FORM' | 'CHECKOUT' | 'SUCCESS'>('FORM');
   const [search, setSearch] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [filterDate, setFilterDate] = useState("");
   const [viewMode, setViewMode] = useState<'LIST' | 'CALENDAR'>('LIST');
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date>(new Date());
   const [showPackageHistory, setShowPackageHistory] = useState(false);
   const [historyClient, setHistoryClient] = useState<Client | null>(null);
+  const [filterTour, setFilterTour] = useState("");
+  const [filterClient, setFilterClient] = useState("");
+  const [filterWhatsapp, setFilterWhatsapp] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("PIX");
+  const [statusValue, setStatusValue] = useState("PENDENTE");
 
   const [whatsappValue, setWhatsappValue] = useState("");
   const [clientName, setClientName] = useState("");
@@ -47,11 +60,22 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     return tomorrow.toISOString().split('T')[0];
   });
   const [priceValue, setPriceValue] = useState("");
+  const [timeValue, setTimeValue] = useState("");
   const [paxInput, setPaxInput] = useState({ adl: 1, chd: 0, free: 0 });
 
   const [showClientAdd, setShowClientAdd] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+
+  const [selectedGuideId, setSelectedGuideId] = useState("");
+  const [selectedGuideName, setSelectedGuideName] = useState("");
+
+  const guides = useMemo(() => {
+    return users.filter(u =>
+      u.role === 'GUIA' ||
+      (u.role === 'ADMIN' && u.email === 'a_sergio@icloud.com')
+    );
+  }, [users]);
 
   const filteredClientsSearch = useMemo(() => {
     if (!clientSearch) return [];
@@ -103,40 +127,65 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
       return;
     }
 
-    // --- CHECK CONFLICT (Duplicate Tour on Same Day for Client) ---
-    // Exception: tours containing "BY NIGHT" (case insensitive)
-    if (clientName) {
-      const isConflict = bookings.some(b =>
-        b.client.toUpperCase() === clientName.toUpperCase() &&
-        b.date === dateValue &&
-        b.status !== 'CANCELADO' &&
-        !b.tour.toUpperCase().includes("BY NIGHT") &&
-        !tourValue.toUpperCase().includes("BY NIGHT")
-      );
-      // Also check cart items?
-      const isCartConflict = cart.some(c =>
-        c.date === dateValue &&
-        !c.tour.includes("BY NIGHT") &&
-        !tourValue.toUpperCase().includes("BY NIGHT")
-      );
+    // --- CHECK CONFLICT (Global per Guide) ---
+    if (!selectedGuideId) {
+      alert("Por favor, selecione um guia para este serviço.");
+      return;
+    }
 
-      if (isConflict || isCartConflict) {
-        alert("ALERTA DE CONFLITO: Este cliente já possui um passeio para esta data (Regra: 1 passeio/dia, exceto By Night).");
-        return;
+    // New Conflict Logic: Time-based or 'One Diurnal Tour' rule
+    // If Time is provided, check for exact overlap
+    // If NO Time provided, assume it takes the whole slot (Day or Night)
+
+    const isNight = isNightTour(tourValue);
+
+    // Check against existing bookings
+    const guideConflict = bookings.find(b => {
+      if (b.guideId !== selectedGuideId || b.status === 'CANCELADO' || b.date !== dateValue) return false;
+
+      // If times are set on both, check for match
+      if (timeValue && b.time) {
+        return timeValue === b.time;
       }
+
+      // Fallback to old "One Diurnal" rule if no times
+      if (!isNight && !isNightTour(b.tour)) return true; // Two diurnal tours without time = Conflict? 
+      // Let's refine: If user sets time, we trust them to manage overlap, BUT we warn if same time.
+      // If NO time set, we stick to "One per period".
+
+      return false;
+    });
+
+    if (guideConflict) {
+      const msg = timeValue && guideConflict.time
+        ? `CONFLITO: O guia já tem um agendamento às ${guideConflict.time}!`
+        : "ALERTA: O guia já possui um serviço nesta data/período.";
+
+      if (!confirm(`${msg}\nDeseja continuar mesmo assim?`)) return;
     }
     const newItem: CartItem = {
       id: Date.now().toString(),
       tour: tourValue.toUpperCase(),
       date: dateValue,
+      time: timeValue,
       pax: { ...paxInput },
       price: priceValue,
       observation: ""
     };
     setCart(prev => [...prev, newItem]);
-    setTourValue(""); setPriceValue("");
+    setTourValue(""); setPriceValue(""); setTimeValue("");
     // Keep Pax values for next item as requested
     // setPaxInput({ adl: 1, chd: 0, free: 0 }); 
+  };
+
+  const editCartItem = (item: CartItem) => {
+    setTourValue(item.tour);
+    setDateValue(item.date);
+    setTimeValue(item.time || "");
+    setPriceValue(item.price);
+    setPaxInput(item.pax);
+    // Remove from cart to "re-add" or replace
+    setCart(prev => prev.filter(c => c.id !== item.id));
   };
 
   const confirmAndPay = async () => {
@@ -144,7 +193,16 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     setIsProcessing(true);
     try {
       const createdBookings: Booking[] = [];
-      const finalClientId = selectedClient?.id || "TEMP-" + Date.now();
+      const finalClientId = selectedClient?.id || null;
+
+      // Calculate Total Amount and Description for Transaction
+      const totalAmount = cart.reduce((acc, item) => {
+        const val = parseFloat(item.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+        return acc + val;
+      }, 0);
+
+      const tourDescription = cart.map(c => c.tour).join(' + ');
+      const transactionDescription = `Recebimento Tour ${tourDescription} - ${clientName.toUpperCase()}`.substring(0, 250);
 
       // --- CONFLICT DETECTION & ID GENERATION PRE-CHECK ---
       for (const item of cart) {
@@ -167,28 +225,71 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
       const lastId = bookings.length > 0 ? bookings.length : 0;
       let nextIdCount = lastId + 1;
 
+      // Check if we need to create transactions (Status Changed to CONFIRMADO)
+      const shouldCreateTransaction = statusValue === 'CONFIRMADO' && (!editingBooking || editingBooking.status !== 'CONFIRMADO');
+
       if (editingBooking) {
-        const item = cart[0];
-        const updated = await bookingService.update(editingBooking.id, {
-          clientId: finalClientId,
-          client: clientName.toUpperCase(),
-          whatsapp: whatsappValue.toUpperCase(),
-          tour: item.tour.toUpperCase(),
-          date: item.date,
-          pax: item.pax,
-          price: item.price,
-          status: editingBooking.status,
-          location: hotelSearch.toUpperCase(),
-          confirmed: editingBooking.confirmed,
-          observation: item.observation,
-          paymentMethod: paymentMethod
-        });
-        setBookings(bookings.map(b => b.id === editingBooking.id ? updated : b));
+        // For editing, we delete the old siblings and create new ones with SAME bookingNumber
+        // to ensure we capture all changes (additions, deletions, edits)
+        if (editingBooking.bookingNumber) {
+          const siblings = bookings.filter(b => b.bookingNumber === editingBooking.bookingNumber);
+          for (const sb of siblings) {
+            await bookingService.delete(String(sb.id));
+          }
+        } else {
+          await bookingService.delete(String(editingBooking.id));
+        }
+
+        const bNumber = editingBooking.bookingNumber || `Agend.${String(nextIdCount).padStart(4, '0')}`;
+        const updatedBookings: Booking[] = [];
+
+        for (const item of cart) {
+          const newB = await bookingService.create({
+            bookingNumber: bNumber,
+            clientId: finalClientId,
+            client: clientName.toUpperCase(),
+            whatsapp: whatsappValue.toUpperCase(),
+            tour: item.tour.toUpperCase(),
+            date: item.date,
+            time: item.time,
+            pax: item.pax,
+            price: item.price,
+            status: statusValue as any,
+            location: hotelSearch.toUpperCase(),
+            confirmed: statusValue === 'CONFIRMADO',
+            guideId: selectedGuideId,
+            guideName: selectedGuideName,
+            guideRevenue: (() => {
+              const guide = users.find(u => u.id === selectedGuideId);
+              return guide?.dailyRate || "0";
+            })(),
+            observation: item.observation,
+            paymentMethod: paymentMethod
+          });
+          updatedBookings.push(newB);
+        }
+
+        // Create Single Transaction if applicable
+        if (shouldCreateTransaction && totalAmount > 0) {
+          await transactionService.create({
+            description: transactionDescription,
+            category: 'VENDAS',
+            amount: totalAmount,
+            type: 'ENTRADA',
+            status: 'PAGO',
+            date: new Date().toISOString().split('T')[0],
+            userName: 'SISTEMA'
+          });
+        }
+
+        // Remove old siblings and add new ones to local state
+        const otherBookings = bookings.filter(b => b.bookingNumber !== editingBooking.bookingNumber && b.id !== editingBooking.id);
+        setBookings([...updatedBookings, ...otherBookings]);
         setModalStep('SUCCESS');
         return;
       }
 
-      // Generate ID strictly as Agend.XXXX - ONCE for the whole batch
+      // NEW BOOKING LOGIC
       const agendId = `Agend.${String(nextIdCount).padStart(4, '0')}`;
       nextIdCount++;
 
@@ -200,15 +301,35 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
           whatsapp: whatsappValue.toUpperCase(),
           tour: item.tour.toUpperCase(),
           date: item.date,
+          time: item.time,
           pax: item.pax,
           price: item.price,
-          status: "PENDENTE",
+          status: statusValue as any,
           location: hotelSearch.toUpperCase(),
-          confirmed: false,
+          confirmed: statusValue === 'CONFIRMADO',
+          guideId: selectedGuideId,
+          guideName: selectedGuideName,
+          guideRevenue: (() => {
+            const guide = users.find(u => u.id === selectedGuideId);
+            return guide?.dailyRate || "0";
+          })(),
           observation: item.observation,
           paymentMethod: paymentMethod
         });
         createdBookings.push(newBooking);
+      }
+
+      // Create Single Transaction if applicable
+      if (shouldCreateTransaction && totalAmount > 0) {
+        await transactionService.create({
+          description: transactionDescription,
+          category: 'VENDAS',
+          amount: totalAmount,
+          type: 'ENTRADA',
+          status: 'PAGO',
+          date: new Date().toISOString().split('T')[0],
+          userName: 'SISTEMA'
+        });
       }
 
       setBookings([...createdBookings, ...bookings]);
@@ -229,6 +350,10 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     const existingClient = clients.find(c => c.id === b.clientId || c.nome.toUpperCase() === b.client.toUpperCase());
     setSelectedClient(existingClient || null);
 
+    // Guide Info
+    setSelectedGuideId(b.guideId || "");
+    setSelectedGuideName(b.guideName || "");
+
     // Find siblings
     const siblings = (b.bookingNumber && b.bookingNumber.startsWith('Agend'))
       ? bookings.filter(bk => bk.bookingNumber === b.bookingNumber)
@@ -238,6 +363,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
       id: sb.id.toString(),
       tour: sb.tour,
       date: sb.date,
+      time: sb.time,
       pax: sb.pax,
       price: sb.price,
       observation: sb.observation || ""
@@ -252,6 +378,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     // setPriceValue(b.price);
 
     setPaymentMethod(b.paymentMethod || "PIX");
+    setStatusValue(b.status || "PENDENTE");
     setModalStep('FORM');
     setShowModal(true);
   };
@@ -470,11 +597,19 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     doc.save(`Voucher_${b.client}_${bookingIdDisplay}.pdf`);
   };
 
-  const filteredBookings = bookings.filter(b =>
-    b.client.toLowerCase().includes(search.toLowerCase()) ||
-    (b.bookingNumber && b.bookingNumber.toLowerCase().includes(search.toLowerCase())) ||
-    b.whatsapp.includes(search)
-  ).sort((a, b) => {
+  const filteredBookings = bookings.filter(b => {
+    const matchesSearch = b.client.toLowerCase().includes(search.toLowerCase()) ||
+      (b.bookingNumber && b.bookingNumber.toLowerCase().includes(search.toLowerCase())) ||
+      b.whatsapp.includes(search);
+
+    const matchesDate = !filterDate || b.date === filterDate;
+    const matchesTour = !filterTour || b.tour.toLowerCase().includes(filterTour.toLowerCase());
+    const matchesClient = !filterClient || b.client.toLowerCase().includes(filterClient.toLowerCase());
+    const matchesWhatsapp = !filterWhatsapp || b.whatsapp.includes(filterWhatsapp);
+    const matchesStatus = !filterStatus || b.status === filterStatus;
+
+    return matchesSearch && matchesDate && matchesTour && matchesClient && matchesWhatsapp && matchesStatus;
+  }).sort((a, b) => {
     // Sort Descending by ID (Agend.XXXX)
     const getNum = (str?: string) => {
       if (!str) return 0;
@@ -519,22 +654,53 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
             setEditingBooking(null);
             setCart([]); setModalStep('FORM'); setShowModal(true);
             setClientName(""); setWhatsappValue(""); setHotelSearch("");
+            setTourValue(""); setPriceValue(""); setTimeValue("");
+            setSelectedGuideId(""); setSelectedGuideName("");
           }} className="w-14 h-14 bg-orange-500 rounded-3xl flex items-center justify-center shadow-lg active:scale-90 transition-transform cursor-pointer">
             <Plus size={28} color="#FFFFFF" weight="bold" />
           </button>
         </div>
 
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value.toUpperCase())} placeholder="PESQUISAR NA AGENDA..." className="w-full bg-white border border-gray-200 rounded-[20px] py-4 pl-12 pr-4 text-sm font-bold focus:border-orange-500 outline-none shadow-sm uppercase" />
+        <div className="bg-white p-6 rounded-[28px] border border-gray-100 shadow-sm space-y-4">
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[200px] relative">
+              <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input type="text" value={filterClient} onChange={(e) => setFilterClient(e.target.value.toUpperCase())} placeholder="CLIENTE..." className="w-full bg-gray-50 border border-transparent rounded-xl py-3 pl-12 pr-4 text-xs font-bold focus:bg-white focus:border-orange-500 outline-none transition-all uppercase" />
+            </div>
+            <div className="flex-1 min-w-[150px] relative">
+              <WhatsappLogo className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input type="text" value={filterWhatsapp} onChange={(e) => setFilterWhatsapp(e.target.value)} placeholder="WHATSAPP..." className="w-full bg-gray-50 border border-transparent rounded-xl py-3 pl-12 pr-4 text-xs font-bold focus:bg-white focus:border-orange-500 outline-none transition-all" />
+            </div>
+            <div className="flex-1 min-w-[180px]">
+              <input type="text" value={filterTour} onChange={(e) => setFilterTour(e.target.value.toUpperCase())} placeholder="PASSEIO..." className="w-full bg-gray-50 border border-transparent rounded-xl py-3 px-4 text-xs font-bold focus:bg-white focus:border-orange-500 outline-none transition-all uppercase" />
+            </div>
           </div>
-          <button
-            onClick={() => setViewMode(viewMode === 'LIST' ? 'CALENDAR' : 'LIST')}
-            className={`px-4 bg-white border border-gray-100 rounded-[20px] shadow-sm flex items-center gap-2 text-[9px] font-black uppercase transition-all ${viewMode === 'CALENDAR' ? 'text-orange-600 border-orange-200 bg-orange-50' : 'text-gray-400'}`}
-          >
-            {viewMode === 'LIST' ? 'Calendário' : 'Lista'}
-          </button>
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex-1 min-w-[150px]">
+              <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="w-full bg-gray-50 border border-transparent rounded-xl py-3 px-4 text-xs font-bold focus:bg-white focus:border-orange-500 outline-none transition-all" />
+            </div>
+            <div className="flex-1 min-w-[150px]">
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full bg-gray-50 border border-transparent rounded-xl py-3 px-4 text-xs font-bold focus:bg-white focus:border-orange-500 outline-none transition-all uppercase">
+                <option value="">TODOS STATUS</option>
+                <option value="AGENDADO">AGENDADO</option>
+                <option value="APROVADO">APROVADO</option>
+                <option value="EM EXECUÇÃO">EM EXECUÇÃO</option>
+                <option value="CANCELADO">CANCELADO</option>
+              </select>
+            </div>
+            <button
+              onClick={() => { setFilterClient(""); setFilterWhatsapp(""); setFilterTour(""); setFilterDate(""); setFilterStatus(""); setSearch(""); }}
+              className="px-6 py-3 bg-gray-100 text-gray-500 rounded-xl text-[10px] font-black uppercase hover:bg-gray-200 transition-all"
+            >
+              Limpar Filtros
+            </button>
+            <button
+              onClick={() => setViewMode(viewMode === 'LIST' ? 'CALENDAR' : 'LIST')}
+              className={`px-6 py-3 rounded-xl border flex items-center gap-2 text-[10px] font-black uppercase transition-all ${viewMode === 'CALENDAR' ? 'bg-orange-500 text-white border-transparent' : 'bg-white text-gray-400 border-gray-100'}`}
+            >
+              {viewMode === 'LIST' ? 'Ver Calendário' : 'Ver Planilha'}
+            </button>
+          </div>
         </div>
 
         {viewMode === 'CALENDAR' && (
@@ -594,60 +760,96 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
         )}
 
         {viewMode === 'LIST' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {groupedBookings.map(group => {
-              const b = group[0];
-              const totalVal = group.reduce((acc, curr) => acc + (parseFloat(curr.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0), 0);
-              const totalFormatted = totalVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+          <div className="bg-white rounded-none overflow-hidden border border-gray-100 shadow-sm overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-orange-500 text-white">
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400">Voucher</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400">Cliente / Whats</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400">Passeio</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400">Data</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400 text-center">Pax</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400 text-right">Valor</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest border-r border-orange-400 text-center">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filteredBookings.map(b => {
+                  const statusColors = {
+                    'AGENDADO': 'bg-orange-100 text-orange-600',
+                    'PENDENTE': 'bg-orange-100 text-orange-600',
+                    'APROVADO': 'bg-green-100 text-green-600',
+                    'CONFIRMADO': 'bg-green-100 text-green-600',
+                    'EM EXECUÇÃO': 'bg-blue-100 text-blue-600',
+                    'CANCELADO': 'bg-red-100 text-red-600'
+                  };
+                  const currentStatus = (b.status || 'AGENDADO') as keyof typeof statusColors;
 
-              return (
-                <div key={b.id} className="agenda-card bg-white border-gray-100 p-4 space-y-3 shadow-sm">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="mb-1">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
-                          {/* ID Format */}
+                  return (
+                    <tr key={b.id} className="hover:bg-gray-50/50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">
                           {b.bookingNumber ? b.bookingNumber.replace("#", "") : `Agend.${String(b.id).slice(-4)}`}
                         </span>
-                      </div>
-                      <h4 className="font-black text-sm text-gray-900 uppercase leading-none mb-1">{b.client}</h4>
-
-                      {/* Items List */}
-                      <div className="space-y-2 mt-3">
-                        {group.map(item => (
-                          <div key={item.id} className="border-l-2 border-orange-100 pl-2">
-                            <p className="text-[10px] text-orange-600 font-bold uppercase tracking-tight">{item.tour}</p>
-                            <p className="text-[9px] text-gray-400 font-bold uppercase">
-                              {formatDateLong(item.date)} • {typeof item.pax === 'object' ? `${item.pax.adl + item.pax.chd + item.pax.free} PAX` : `${item.pax} PAX`} • R$ {item.price}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[9px] font-black text-gray-400 uppercase">TOTAL</p>
-                      <p className="text-sm font-black text-gray-900">{totalFormatted}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 pt-2 border-t border-gray-50">
-                    <button onClick={() => handleWhatsAppShare(b)} className="flex-1 bg-[#25D366] text-white py-3 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
-                      <WhatsappLogo size={16} weight="fill" /> WhatsApp
-                    </button>
-                    <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 text-white py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
-                      <FilePdf size={16} weight="fill" /> Voucher
-                    </button>
-                    <button onClick={() => openEdit(b)} className="w-12 bg-gray-50 text-gray-400 rounded-xl hover:text-orange-500 hover:bg-orange-50 transition-colors cursor-pointer flex items-center justify-center active:scale-95">
-                      <PencilSimple size={20} weight="bold" />
-                    </button>
-                    <button onClick={() => handleDelete(b.id)} className="p-3 bg-red-50 text-red-500 rounded-xl active:scale-95 transition-all">
-                      <Trash size={20} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            {groupedBookings.length === 0 && (
-              <div className="py-20 text-center opacity-30 flex flex-col items-center col-span-2">
+                      </td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <p onClick={() => {
+                            const client = clients.find(c => c.id === b.clientId || c.nome.toUpperCase() === b.client.toUpperCase());
+                            setHistoryClient(client || { id: 'manual', nome: b.client, whatsapp: b.whatsapp, status: 'ATIVO' } as any);
+                            setShowPackageHistory(true);
+                          }} className="text-xs font-black text-gray-900 uppercase leading-none hover:text-orange-500 cursor-pointer transition-colors">
+                            {b.client}
+                          </p>
+                          <p className="text-[10px] text-gray-400 font-bold mt-1 flex items-center gap-1">
+                            <WhatsappLogo size={12} weight="fill" className="text-green-500" /> {b.whatsapp}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-[10px] font-bold text-gray-700 uppercase leading-tight">{b.tour}</p>
+                        {b.location && <p className="text-[9px] text-gray-400 font-bold mt-0.5 truncate max-w-[150px] uppercase">@{b.location}</p>}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-[10px] font-bold text-gray-600 uppercase">{formatDateLong(b.date)}</p>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-[10px] font-black text-gray-700">
+                          {typeof b.pax === 'object' ? (b.pax.adl + b.pax.chd) : b.pax}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="text-[11px] font-black text-gray-900">R$ {b.price}</p>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-full whitespace-nowrap ${statusColors[currentStatus] || 'bg-gray-100 text-gray-500'}`}>
+                          {b.status === 'PENDENTE' ? 'AGENDADO' : (b.status === 'CONFIRMADO' ? 'APROVADO' : b.status)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => handleWhatsAppShare(b)} className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 transition-colors" title="WhatsApp">
+                            <WhatsappLogo size={16} weight="bold" />
+                          </button>
+                          <button onClick={() => handleGeneratePDF(b)} className="p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors" title="Voucher PDF">
+                            <FilePdf size={16} weight="bold" />
+                          </button>
+                          <button onClick={() => openEdit(b)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors" title="Editar">
+                            <PencilSimple size={16} weight="bold" />
+                          </button>
+                          <button onClick={() => handleDelete(b.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors" title="Excluir">
+                            <Trash size={16} weight="bold" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {filteredBookings.length === 0 && (
+              <div className="py-20 text-center opacity-30 flex flex-col items-center">
                 <CalendarPlus size={48} className="mb-2" />
                 <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma reserva localizada</p>
               </div>
@@ -681,7 +883,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-xs font-black text-gray-900 uppercase leading-none">{b.tour}</p>
-                        <p className="text-[10px] text-orange-600 font-bold mt-1 uppercase">{formatDateLong(b.date)}</p>
+                        <p className="text-[10px] text-orange-600 font-bold mt-1 uppercase">{formatDateLong(b.date)} {b.time ? `- ${b.time}` : ''}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-black text-gray-900">R$ {b.price}</p>
@@ -698,7 +900,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                       <button onClick={() => {
                         const newDate = prompt("Nova data (AAAA-MM-DD):", b.date);
                         if (newDate && newDate !== b.date) {
-                          bookingService.update(b.id, { date: newDate }).then(updated => {
+                          bookingService.update(String(b.id), { date: newDate }).then(updated => {
                             setBookings(bookings.map(book => book.id === b.id ? updated : book));
                           });
                         }
@@ -722,7 +924,9 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                 setWhatsappValue(historyClient.whatsapp);
                 setHotelSearch(historyClient.endereco || "");
                 setSelectedClient(historyClient.id === 'manual' ? null : historyClient);
+                setSelectedGuideId(""); setSelectedGuideName("");
                 setCart([]);
+                setTourValue(""); setPriceValue(""); setTimeValue("");
                 setModalStep('FORM');
                 setShowModal(true);
               }} className="w-full bg-gray-900 text-white rounded-3xl py-6 text-[11px] font-black uppercase shadow-xl flex items-center justify-center gap-2">
@@ -814,6 +1018,49 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                       </div>
                     )}
 
+                    <div className="space-y-1.5 relative z-20">
+                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Guia Responsável</label>
+                      <div className="relative group">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={selectedGuideName}
+                            onChange={(e) => {
+                              setSelectedGuideName(e.target.value.toUpperCase());
+                              const match = guides.find(g => g.nome.toUpperCase() === e.target.value.toUpperCase());
+                              if (match) setSelectedGuideId(match.id);
+                              else setSelectedGuideId("");
+                            }}
+                            placeholder="BUSCAR GUIA..."
+                            className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-5 text-sm font-bold outline-none focus:border-orange-500 uppercase pr-10"
+                          />
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                            <CaretRight size={16} weight="bold" className="rotate-90" />
+                          </div>
+                        </div>
+
+                        {/* Dropdown List */}
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-100 rounded-xl shadow-xl max-h-48 overflow-y-auto hidden group-focus-within:block z-50">
+                          {guides.filter(g => g.nome.toUpperCase().includes(selectedGuideName.toUpperCase())).length > 0 ? (
+                            guides.filter(g => g.nome.toUpperCase().includes(selectedGuideName.toUpperCase())).map(g => (
+                              <div
+                                key={g.id}
+                                onMouseDown={() => {
+                                  setSelectedGuideName(g.nome);
+                                  setSelectedGuideId(g.id);
+                                }}
+                                className="p-3 hover:bg-orange-50 cursor-pointer text-xs font-bold text-gray-700 uppercase border-b border-gray-50 last:border-0"
+                              >
+                                {g.nome}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="p-3 text-[10px] uppercase text-gray-400 font-bold text-center">Nenhum guia encontrado</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Local / Hotel</label>
                       <input value={hotelSearch} onChange={e => setHotelSearch(e.target.value.toUpperCase())} placeholder="ONDE ESTÁ HOSPEDADO?" className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-5 text-sm font-bold outline-none focus:border-orange-500 uppercase" />
@@ -859,9 +1106,13 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                         <input type="date" value={dateValue} onChange={e => setDateValue(e.target.value)} className="w-full bg-white border border-orange-200 rounded-xl p-4 text-xs font-bold" />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[9px] font-black text-orange-800 uppercase ml-1">Preço (R$)</label>
-                        <input value={priceValue} onChange={handlePriceInput} placeholder="0,00" className="w-full bg-white border border-orange-200 rounded-xl p-4 text-xs font-black text-orange-600" />
+                        <label className="text-[9px] font-black text-orange-800 uppercase ml-1">Horário</label>
+                        <input type="time" value={timeValue} onChange={e => setTimeValue(e.target.value)} className="w-full bg-white border border-orange-200 rounded-xl p-4 text-xs font-bold text-center" />
                       </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black text-orange-800 uppercase ml-1">Preço (R$)</label>
+                      <input value={priceValue} onChange={handlePriceInput} placeholder="0,00" className="w-full bg-white border border-orange-200 rounded-xl p-4 text-xs font-black text-orange-600" />
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       <div className="space-y-1">
@@ -887,13 +1138,16 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                     <div className="space-y-3 pt-4">
                       <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-2">Itens Inclusos</h4>
                       {cart.map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 group/item">
                           <div>
                             <p className="text-[11px] font-black text-gray-900 uppercase leading-none">{item.tour}</p>
-                            <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">{formatDateLong(item.date)}</p>
+                            <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">{formatDateLong(item.date)} {item.time ? `às ${item.time}` : ''}</p>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[11px] font-black text-orange-600">R$ {item.price}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-black text-orange-600 mr-2">R$ {item.price}</span>
+                            <button onClick={() => editCartItem(item)} className="p-2 text-blue-400 hover:text-blue-600 transition-colors opacity-0 group-hover/item:opacity-100">
+                              <PencilSimple size={16} weight="bold" />
+                            </button>
                             <button onClick={() => {
                               const newCart = cart.filter(c => c.id !== item.id);
                               setCart(newCart);
@@ -909,27 +1163,53 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
               )}
 
               {modalStep === 'CHECKOUT' && (
-                <div className="space-y-8 py-4">
-                  <div className="bg-gray-50 p-8 rounded-[32px] text-center border border-gray-100 shadow-inner">
+                <div className="space-y-6 py-4">
+                  <div className="bg-gray-50 p-6 rounded-[24px] text-center border border-gray-100 shadow-inner">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Valor Total</p>
-                    <span className="text-4xl font-black text-gray-900">
+                    <span className="text-3xl font-black text-gray-900">
                       {cart.reduce((a, c) => {
                         const val = parseFloat(c.price.replace(/[^\d,]/g, "").replace(",", "."));
                         return a + (isNaN(val) ? 0 : val);
                       }, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <button onClick={() => setPaymentMethod('PIX')} className={`p-6 rounded-3xl border-2 flex flex-col items-center gap-3 transition-all ${paymentMethod === 'PIX' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
-                      <QrCode size={28} /> <span className="text-[8px] font-black uppercase tracking-widest">PIX</span>
-                    </button>
-                    <button onClick={() => setPaymentMethod('CARTÃO')} className={`p-6 rounded-3xl border-2 flex flex-col items-center gap-3 transition-all ${paymentMethod === 'CARTÃO' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
-                      <CreditCard size={28} /> <span className="text-[8px] font-black uppercase tracking-widest">Card</span>
-                    </button>
-                    <button onClick={() => setPaymentMethod('DINHEIRO')} className={`p-6 rounded-3xl border-2 flex flex-col items-center gap-3 transition-all ${paymentMethod === 'DINHEIRO' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
-                      <Bank size={28} /> <span className="text-[8px] font-black uppercase tracking-widest">Cash</span>
-                    </button>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Forma de Pagamento</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <button onClick={() => setPaymentMethod('PIX')} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${paymentMethod === 'PIX' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
+                        <QrCode size={24} /> <span className="text-[8px] font-black uppercase tracking-widest">PIX</span>
+                      </button>
+                      <button onClick={() => setPaymentMethod('CARTÃO')} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${paymentMethod === 'CARTÃO' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
+                        <CreditCard size={24} /> <span className="text-[8px] font-black uppercase tracking-widest">Card</span>
+                      </button>
+                      <button onClick={() => setPaymentMethod('DINHEIRO')} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${paymentMethod === 'DINHEIRO' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
+                        <Bank size={24} /> <span className="text-[8px] font-black uppercase tracking-widest">Cash</span>
+                      </button>
+                    </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Status da Reserva</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button onClick={() => setStatusValue('PENDENTE')} className={`p-4 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${statusValue === 'PENDENTE' ? 'border-amber-500 bg-amber-50 text-amber-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
+                        Pendente
+                      </button>
+                      <button onClick={() => setStatusValue('CONFIRMADO')} className={`p-4 rounded-2xl border-2 text-[10px] font-black uppercase tracking-widest transition-all ${statusValue === 'CONFIRMADO' ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>
+                        Aprovado (Pago)
+                      </button>
+                    </div>
+                  </div>
+
+                  {statusValue === 'CONFIRMADO' && (
+                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex items-center gap-3 animate-fadeIn">
+                      <CheckCircle size={20} className="text-emerald-500" weight="fill" />
+                      <p className="text-[9px] font-bold text-emerald-700 uppercase leading-tight">
+                        O valor será lançado automaticamente no financeiro como "Recebimento Tour".
+                      </p>
+                    </div>
+                  )}
+
                 </div>
               )}
 
@@ -938,7 +1218,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                   <div className="w-24 h-24 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
                     <CheckCircle size={56} weight="fill" className="text-orange-500" />
                   </div>
-                  <h3 className="text-2xl font-black text-gray-900 uppercase">Reserva Confirmada!</h3>
+                  <h3 className="text-2xl font-black text-gray-900 uppercase">Reserva {statusValue === 'CONFIRMADO' ? 'Aprovada' : 'Agendada'}!</h3>
                   <button onClick={() => setShowModal(false)} className="w-full bg-gray-900 text-white py-5 rounded-2xl text-[11px] font-black uppercase">Finalizar e Voltar</button>
                 </div>
               )}
@@ -958,7 +1238,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                 ) : (
                   <button disabled={isProcessing} onClick={confirmAndPay} className="flex-1 bg-orange-500 text-white rounded-3xl py-6 text-[11px] font-black uppercase shadow-xl flex items-center justify-center gap-2">
                     {isProcessing && <CircleNotch className="animate-spin" size={20} />}
-                    {isProcessing ? 'PROCESSANDO...' : 'FINALIZAR AGENDAMENTO'}
+                    {isProcessing ? 'PROCESSANDO...' : (statusValue === 'CONFIRMADO' ? 'CONFIRMAR PAGAMENTO' : 'FINALIZAR AGENDAMENTO')}
                   </button>
                 )}
               </div>

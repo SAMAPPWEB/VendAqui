@@ -41,7 +41,11 @@ export const adapters = {
                 role: dbUser.role,
                 status: dbUser.status,
                 avatar: dbUser.avatar,
-                senha: dbUser.senha
+                senha: dbUser.senha,
+                whatsapp: dbUser.whatsapp,
+                cnpj: dbUser.cnpj,
+                endereco: dbUser.endereco,
+                dailyRate: dbUser.daily_rate ? dbUser.daily_rate.toString() : "0"
             };
         },
         toDb(appUser: Partial<User>): any {
@@ -52,6 +56,14 @@ export const adapters = {
             if (appUser.status !== undefined) map.status = appUser.status;
             if (appUser.avatar !== undefined) map.avatar = appUser.avatar;
             if (appUser.senha !== undefined) map.senha = appUser.senha;
+            if (appUser.whatsapp !== undefined) map.whatsapp = appUser.whatsapp;
+            if (appUser.cnpj !== undefined) map.cnpj = appUser.cnpj;
+            if (appUser.endereco !== undefined) map.endereco = appUser.endereco;
+            if (appUser.dailyRate !== undefined) {
+                map.daily_rate = typeof appUser.dailyRate === 'string'
+                    ? parseFloat(appUser.dailyRate.replace(/[^\d,]/g, '').replace(',', '.'))
+                    : appUser.dailyRate;
+            }
             return map;
         }
     },
@@ -103,6 +115,9 @@ export const adapters = {
                 status: dbBooking.status,
                 location: dbBooking.location,
                 confirmed: dbBooking.confirmed,
+                guideId: dbBooking.guide_id,
+                guideName: dbBooking.guide_name,
+                guideRevenue: dbBooking.guide_revenue ? dbBooking.guide_revenue.toString() : "0",
                 observation: dbBooking.observation,
                 paymentMethod: dbBooking.payment_method,
                 createdAt: dbBooking.created_at,
@@ -134,8 +149,15 @@ export const adapters = {
             if (appBooking.status !== undefined) map.status = appBooking.status;
             if (appBooking.location !== undefined) map.location = appBooking.location;
             if (appBooking.confirmed !== undefined) map.confirmed = appBooking.confirmed;
+            if (appBooking.guideId !== undefined) map.guide_id = appBooking.guideId;
+            if (appBooking.guideName !== undefined) map.guide_name = appBooking.guideName;
             if (appBooking.observation !== undefined) map.observation = appBooking.observation;
             if (appBooking.paymentMethod !== undefined) map.payment_method = appBooking.paymentMethod;
+            if (appBooking.guideRevenue !== undefined) {
+                map.guide_revenue = typeof appBooking.guideRevenue === 'string'
+                    ? parseFloat(appBooking.guideRevenue.replace(/[^\d,]/g, '').replace(',', '.'))
+                    : appBooking.guideRevenue;
+            }
             return map;
         }
     },
@@ -269,6 +291,27 @@ export const adapters = {
             if (appTour.rating !== undefined) map.rating = parseFloat(String(appTour.rating));
             if (appTour.description !== undefined) map.description = appTour.description;
             if (appTour.active !== undefined) map.active = appTour.active;
+            return map;
+        }
+    },
+
+    bookingMedia: {
+        toApp(dbMedia: any): any {
+            return {
+                id: dbMedia.id,
+                bookingId: dbMedia.booking_id,
+                folderName: dbMedia.folder_name,
+                url: dbMedia.url,
+                filename: dbMedia.filename,
+                createdAt: dbMedia.created_at
+            };
+        },
+        toDb(appMedia: any): any {
+            const map: any = {};
+            if (appMedia.bookingId !== undefined) map.booking_id = appMedia.bookingId;
+            if (appMedia.folderName !== undefined) map.folder_name = appMedia.folderName;
+            if (appMedia.url !== undefined) map.url = appMedia.url;
+            if (appMedia.filename !== undefined) map.filename = appMedia.filename;
             return map;
         }
     }

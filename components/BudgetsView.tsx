@@ -30,7 +30,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
 
   // Initial State for Items with Pax Object
   const [items, setItems] = useState<BudgetItem[]>([
-    { id: '1', description: '', pax: { adl: 1, chd: 0, free: 0 }, unitPrice: '', total: '' }
+    { id: '1', description: '', pax: { adl: 1, chd: 0, free: 0 }, unitPrice: '', total: '', date: '' }
   ]);
 
   const [budgetStatus, setBudgetStatus] = useState<'PENDENTE' | 'ENVIADO' | 'APROVADO' | 'CANCELADO'>('PENDENTE');
@@ -70,6 +70,10 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     }));
   };
 
+  const handleDateChange = (id: string, date: string) => {
+    updateItem(id, { date });
+  };
+
   // Helper to update specific pax field
   const updatePax = (id: string, field: 'adl' | 'chd' | 'free', value: string) => {
     const numVal = parseInt(value) || 0;
@@ -86,7 +90,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
   const addNewItem = () => {
     const lastItem = items[items.length - 1];
     const initialPax = lastItem ? { ...lastItem.pax } : { adl: 1, chd: 0, free: 0 };
-    setItems([...items, { id: Math.random().toString(36).substr(2, 9), description: '', pax: initialPax, unitPrice: '', total: '' }]);
+    setItems([...items, { id: Math.random().toString(36).substr(2, 9), description: '', pax: initialPax, unitPrice: '', total: '', date: '' }]);
   };
 
   const removeItem = (id: string) => {
@@ -163,7 +167,8 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
         items: items,
         totalAmount: totalAmount,
         notes: notes,
-        status: budgetStatus
+        status: budgetStatus,
+        hotel: hotelSearch.toUpperCase() // Saving hotel/Ap info
       };
 
       if (editingBudget) {
@@ -189,7 +194,9 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     setIsQuickAdd(false);
     setValidUntil("");
     setNotes("");
-    setItems([{ id: '1', description: '', pax: { adl: 1, chd: 0, free: 0 }, unitPrice: '', total: '' }]);
+    setValidUntil("");
+    setNotes("");
+    setItems([{ id: '1', description: '', pax: { adl: 1, chd: 0, free: 0 }, unitPrice: '', total: '', date: '' }]);
     setHotelSearch("");
     setBudgetStatus('PENDENTE');
   };
@@ -207,6 +214,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     }
     setValidUntil(b.validUntil);
     setNotes(b.notes);
+    setHotelSearch(b.hotel || ""); // Restore hotel
     // Ensure legacy items have pax object structure if needed, or handle in render
     // For now assuming all data maps correctly, or we fix on load
     const mappedItems = b.items.map(i => ({
@@ -277,6 +285,8 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     yPos += 4.5;
     doc.text(`WHATSAPP: ${b.clientWhatsapp}`, rightColX, yPos);
     yPos += 4.5;
+    doc.text(`HOTEL/AP: ${b.hotel || "N/A"}`, rightColX, yPos);
+    yPos += 4.5;
     doc.text(`OPERADOR: ${user.nome}`, rightColX, yPos);
 
     // ITENS with split Pax
@@ -298,7 +308,8 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
         ? `${item.pax.adl} ADL | ${item.pax.chd} CHD | ${item.pax.free} FREE`
         : `${item.pax}`;
 
-      doc.text(`${item.description || "PASSEIO"}`, 15, yPos);
+      const dateStr = item.date ? item.date.split('-').reverse().join('/') : 'DATA A DEFINIR';
+      doc.text(`${dateStr} - ${item.description || "PASSEIO"}`, 15, yPos);
       doc.setFontSize(8);
       doc.setTextColor(100);
       doc.text(paxDetails, 15, yPos + 4); // Print Pax details below description
@@ -487,11 +498,20 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
                       <input value={clientWhatsapp} onChange={e => setClientWhatsapp(e.target.value.toUpperCase())} placeholder="WHATSAPP" className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold uppercase outline-none" />
                     </div>
                   ) : (
-                    <select value={selectedClientId} onChange={e => handleClientSelect(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold uppercase outline-none">
-                      <option value="">SELECIONAR CLIENTE</option>
-                      {clients.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                    </select>
+                    <div className="space-y-2">
+                      <select value={selectedClientId} onChange={e => handleClientSelect(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold uppercase outline-none">
+                        <option value="">SELECIONAR CLIENTE</option>
+                        {clients.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                      </select>
+                    </div>
                   )}
+                  {/* Hotel Input - Shared for both modes */}
+                  <input
+                    value={hotelSearch}
+                    onChange={e => setHotelSearch(e.target.value.toUpperCase())}
+                    placeholder="HOTEL / APARTAMENTO"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold uppercase outline-none mt-2"
+                  />
                   <button type="button" onClick={() => setIsQuickAdd(!isQuickAdd)} className="text-[9px] font-black text-orange-600 uppercase mt-1">
                     {isQuickAdd ? "Selecionar Existente" : "+ Novo Cliente Rápido"}
                   </button>
@@ -539,6 +559,16 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
                           <option value="">Selecione um passeio...</option>
                           {tours.map(t => <option key={t.id} value={t.title}>{t.title} - {t.price}</option>)}
                         </select>
+                        {/* Date Input */}
+                        <div className="mb-3">
+                          <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-1">Data do Passeio</label>
+                          <input
+                            type="date"
+                            value={item.date || ''}
+                            onChange={(e) => handleDateChange(item.id, e.target.value)}
+                            className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs font-bold uppercase outline-none"
+                          />
+                        </div>
                       </div>
 
                       {/* Pax Breakdown & Price */}

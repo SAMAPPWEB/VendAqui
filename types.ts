@@ -63,6 +63,7 @@ export interface BudgetItem {
   pax: { adl: number, chd: number, free: number };
   unitPrice: string;
   total: string;
+  date?: string;
 }
 
 export interface Budget {
@@ -76,6 +77,7 @@ export interface Budget {
   totalAmount: string;
   notes: string;
   status: 'PENDENTE' | 'ENVIADO' | 'APROVADO' | 'CANCELADO' | 'VENCIDO' | 'REJEITADO';
+  hotel?: string;
   createdAt?: string;
   updatedAt?: string;
 }

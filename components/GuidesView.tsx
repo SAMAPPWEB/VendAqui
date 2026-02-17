@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import JSZip from "jszip";
+import { saveAs } from "file-saver";
 import { User, Booking, WhiteLabelConfig, Transaction, BookingMedia } from "../types";
 import {
     Users, Calendar, List, X, CaretLeft, CaretRight, Printer,
@@ -346,6 +348,47 @@ const GuidesView: React.FC<GuidesViewProps> = ({
         } catch (err) {
             console.error(err);
             alert("Erro ao renomear pasta.");
+        }
+    };
+
+    const handleDownloadMedia = async (media: BookingMedia, e?: React.MouseEvent) => {
+        if (e) e.preventDefault();
+        try {
+            const filename = media.filename || 'download';
+            const response = await fetch(media.url);
+            const blob = await response.blob();
+            saveAs(blob, filename);
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao baixar arquivo.");
+        }
+    };
+
+    const handleDownloadFolder = async (folderName: string) => {
+        const mediaInFolder = clientMedia.filter(m => m.folderName === folderName);
+        if (!mediaInFolder.length) return;
+
+        if (!confirm(`Baixar ${mediaInFolder.length} arquivos da pasta "${folderName}"? Isso pode levar alguns segundos.`)) return;
+
+        try {
+            const zip = new JSZip();
+            const folder = zip.folder(folderName);
+
+            // Download all files and add to zip
+            const promises = mediaInFolder.map(async (media) => {
+                const response = await fetch(media.url);
+                const blob = await response.blob();
+                const filename = media.filename || `file-${media.id.substring(0, 8)}`;
+                folder?.file(filename, blob);
+            });
+
+            await Promise.all(promises);
+
+            const content = await zip.generateAsync({ type: "blob" });
+            saveAs(content, `${folderName}.zip`);
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao gerar ZIP da pasta.");
         }
     };
 
@@ -835,10 +878,19 @@ const GuidesView: React.FC<GuidesViewProps> = ({
                                                         <Folder size={18} weight="duotone" className="text-orange-500" />
                                                         <h4 className="text-xs font-black text-gray-900 uppercase">{folder}</h4>
                                                         <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-[9px] font-bold">{items.length}</span>
+
+                                                        <button
+                                                            onClick={() => handleDownloadFolder(folder)}
+                                                            className="text-gray-400 hover:text-green-500 transition-colors ml-2"
+                                                            title="Baixar pasta completa (ZIP)"
+                                                        >
+                                                            <DownloadSimple size={14} weight="bold" />
+                                                        </button>
+
                                                         {['ADMIN', 'DESENVOLVEDOR'].includes(currentUser.role) && (
                                                             <button
                                                                 onClick={() => handleRenameFolder(folder)}
-                                                                className="text-gray-400 hover:text-blue-500 transition-colors ml-2"
+                                                                className="text-gray-400 hover:text-blue-500 transition-colors ml-1"
                                                                 title="Renomear pasta"
                                                             >
                                                                 <PencilSimple size={14} weight="bold" />
@@ -929,6 +981,17 @@ const GuidesView: React.FC<GuidesViewProps> = ({
                                                                     <p className="text-[9px] font-bold text-white truncate drop-shadow-md opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 duration-300">
                                                                         {filename}
                                                                     </p>
+                                                                </div>
+
+                                                                {/* Download Button Overlay - Always visible on hover for everyone */}
+                                                                <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                                                    <button
+                                                                        onClick={(e) => handleDownloadMedia(media, e)} // Pass event to stop propagation if needed, though button is on top
+                                                                        className="p-2 bg-white rounded-full text-gray-900 shadow-lg hover:bg-green-50 hover:text-green-600 transition-transform hover:scale-110 pointer-events-auto"
+                                                                        title="Baixar arquivo"
+                                                                    >
+                                                                        <DownloadSimple size={20} weight="bold" />
+                                                                    </button>
                                                                 </div>
                                                             </div>
                                                         );

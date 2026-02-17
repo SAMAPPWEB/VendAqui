@@ -11,8 +11,11 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
     "@types/bcryptjs": "^2.4.6",
+    "@types/file-saver": "^2.0.7",
     "bcryptjs": "^3.0.3",
+    "file-saver": "^2.0.5",
     "jspdf": "^2.5.2",
+    "jszip": "^3.10.1",
     "phosphor-react": "^1.4.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

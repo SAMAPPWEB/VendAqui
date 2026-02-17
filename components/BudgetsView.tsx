@@ -698,9 +698,20 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
                           onChange={(e) => {
                             const t = tours.find(x => x.title === e.target.value);
                             if (t) {
+                              // Fix: correctly handle price string which might be "1300" or "R$ 1.300,00"
+                              const rawPrice = t.price.replace(/[^\d,]/g, '').replace(',', '.'); // naive parse? 
+                              // Better: Use our parseCurrency helper which handles standard BR format
+                              const numericPrice = parseCurrency(t.price) || 0;
+                              // Check if parseCurrency returned 13 for "13,00" or 1300 for "1.300,00" or 1300 for "1300"
+                              // If t.price is "1300", parseCurrency returns 1300.
+                              // If t.price is "13,00", parseCurrency returns 13.
+
+                              // We want to format it back to "1.300,00"
+                              const formattedPrice = numericPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
                               updateItem(item.id, {
                                 description: t.title,
-                                unitPrice: formatCurrency(t.price.replace(/\D/g, ""))
+                                unitPrice: formattedPrice
                               });
                             } else {
                               updateItem(item.id, { description: e.target.value });

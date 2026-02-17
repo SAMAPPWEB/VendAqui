@@ -357,15 +357,24 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     }
     setValidUntil(b.validUntil);
     setNotes(b.notes);
-    setHotelSearch(b.hotel || ""); // Restore hotel
-    // Ensure legacy items have pax object structure if needed, or handle in render
-    // For now assuming all data maps correctly, or we fix on load
-    const mappedItems = b.items.map(i => ({
-      ...i,
-      pax: typeof i.pax === 'number' ? { adl: i.pax, chd: 0, free: 0 } : i.pax,
-      // Fix: ensure total matches unitPrice immediately on open to fix multiplied totals
-      total: i.unitPrice
-    }));
+    setHotelSearch(b.hotel || "");
+
+    // Improved Mapping
+    const mappedItems = b.items.map(i => {
+      // Logic to resolve Total:
+      // If unitPrice exists, use it (new rule).
+      // If unitPrice is empty/invalid, FALLBACK to existing total (legacy support).
+      const priceSource = (i.unitPrice && i.unitPrice !== "0,00" && i.unitPrice !== "")
+        ? i.unitPrice
+        : i.total;
+
+      return {
+        ...i,
+        pax: typeof i.pax === 'number' ? { adl: i.pax, chd: 0, free: 0 } : i.pax,
+        unitPrice: priceSource,
+        total: priceSource
+      };
+    });
     setItems(mappedItems);
     setBudgetStatus(b.status as any || 'PENDENTE');
     setShowModal(true);
@@ -701,6 +710,10 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
                         >
                           <option value="">Selecione um passeio...</option>
                           {tours.map(t => <option key={t.id} value={t.title}>{t.title} - {t.price}</option>)}
+                          {/* Fallback for saved items not in list */}
+                          {item.description && !tours.find(t => t.title === item.description) && (
+                            <option value={item.description}>{item.description} (Item Salvo)</option>
+                          )}
                         </select>
                         {/* Date Input */}
                         <div className="mb-3">

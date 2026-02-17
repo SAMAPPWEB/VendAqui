@@ -284,6 +284,71 @@ const GuidesView: React.FC<GuidesViewProps> = ({
         }
     };
 
+    const handleDeleteMedia = async (media: BookingMedia) => {
+        if (!confirm("Tem certeza que deseja excluir este arquivo?")) return;
+        try {
+            await mediaService.deleteMedia(media.id, `${media.bookingId}/${media.filename}`); // Assuming filename matches format or we use url
+            // Actually filePath for delete is strictly bookingId/filename in our service
+            // But we store 'filename' as original name.
+            // The service uploads as `${bookingId}/${random}.${ext}`.
+            // We need the ACTUAL path in storage.
+            // In uploadFiles: `const filePath = \`\${bookingId}/\${fileName}\`;`
+            // And `filename: file.name` (Original Name).
+            // We are NOT storing the storage path in DB directly, only URL.
+            // We need to extract storage path from URL or store it.
+            // URL: .../public/photos/bookingId/random.ext
+            // We can parse URL.
+            const urlParts = media.url.split('/photos/');
+            if (urlParts.length < 2) {
+                alert("Erro ao identificar arquivo no storage.");
+                return;
+            }
+            const storagePath = urlParts[1];
+
+            await mediaService.deleteMedia(media.id, storagePath);
+
+            // Refresh
+            setClientMedia(prev => prev.filter(m => m.id !== media.id));
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao excluir mídia.");
+        }
+    };
+
+    const handleRenameMedia = async (media: BookingMedia) => {
+        const newName = prompt("Novo nome para o arquivo:", media.filename);
+        if (!newName || newName === media.filename) return;
+
+        try {
+            await mediaService.updateMedia(media.id, { filename: newName });
+            setClientMedia(prev => prev.map(m => m.id === media.id ? { ...m, filename: newName } : m));
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao renomear arquivo.");
+        }
+    };
+
+    const handleRenameFolder = async (oldName: string) => {
+        const newName = prompt("Novo nome para a pasta:", oldName);
+        if (!newName || newName === oldName) return;
+
+        // Find all media in this folder
+        const mediaInFolder = clientMedia.filter(m => m.folderName === oldName);
+        if (!mediaInFolder.length) return;
+
+        if (!confirm(`Isso alterará a pasta de ${mediaInFolder.length} arquivos. Confirmar?`)) return;
+
+        try {
+            // Update all (Parallel)
+            await Promise.all(mediaInFolder.map(m => mediaService.updateMedia(m.id, { folderName: newName })));
+
+            setClientMedia(prev => prev.map(m => m.folderName === oldName ? { ...m, folderName: newName } : m));
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao renomear pasta.");
+        }
+    };
+
     const handleViewMedia = async (client: any) => {
         if (!selectedGuide) return;
         setViewingMediaForClient({ name: client.name, id: client.id });
@@ -770,6 +835,15 @@ const GuidesView: React.FC<GuidesViewProps> = ({
                                                         <Folder size={18} weight="duotone" className="text-orange-500" />
                                                         <h4 className="text-xs font-black text-gray-900 uppercase">{folder}</h4>
                                                         <span className="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-[9px] font-bold">{items.length}</span>
+                                                        {['ADMIN', 'DESENVOLVEDOR'].includes(currentUser.role) && (
+                                                            <button
+                                                                onClick={() => handleRenameFolder(folder)}
+                                                                className="text-gray-400 hover:text-blue-500 transition-colors ml-2"
+                                                                title="Renomear pasta"
+                                                            >
+                                                                <PencilSimple size={14} weight="bold" />
+                                                            </button>
+                                                        )}
                                                     </div>
                                                     <button
                                                         onClick={() => {
@@ -796,31 +870,67 @@ const GuidesView: React.FC<GuidesViewProps> = ({
                                                         const ext = filename.split('.').pop()?.toLowerCase() || '';
                                                         const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
                                                         const isPdf = ext === 'pdf';
+                                                        const isMaster = ['ADMIN', 'DESENVOLVEDOR'].includes(currentUser.role);
 
                                                         return (
-                                                            <a
-                                                                key={media.id}
-                                                                href={media.url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="group relative aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex items-center justify-center cursor-pointer hover:shadow-md transition-all active:scale-95"
-                                                                title={`Abrir ${filename}`}
-                                                            >
-                                                                {isImage ? (
-                                                                    <img src={media.url} className="w-full h-full object-cover" loading="lazy" />
-                                                                ) : (
-                                                                    <div className="flex flex-col items-center justify-center text-gray-400 p-2 text-center w-full">
-                                                                        {isPdf ? <FilePdf size={32} weight="duotone" className="text-red-400 mb-2" /> : <FilePlus size={32} weight="duotone" className="text-blue-400 mb-2" />}
-                                                                        <span className="text-[8px] font-black uppercase break-all line-clamp-3 leading-tight w-full">{filename}</span>
+                                                            <div key={media.id} className="group relative aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 shadow-sm hover:shadow-md transition-all">
+                                                                <a
+                                                                    href={media.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="absolute inset-0 z-0 cursor-pointer"
+                                                                    title={`Abrir ${filename}`}
+                                                                >
+                                                                    {isImage ? (
+                                                                        <img
+                                                                            src={media.url}
+                                                                            alt="Media"
+                                                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                                            onError={(e) => {
+                                                                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Erro';
+                                                                            }}
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="flex flex-col items-center justify-center w-full h-full bg-gray-50 text-gray-400 group-hover:text-orange-500 transition-colors">
+                                                                            {isPdf ? (
+                                                                                <FilePdf size={32} weight="duotone" />
+                                                                            ) : (
+                                                                                <FilePlus size={32} weight="duotone" />
+                                                                            )}
+                                                                            <span className="text-[8px] font-bold mt-2 uppercase tracking-widest">{ext}</span>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Overlay Gradient */}
+                                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                                                </a>
+
+                                                                {/* Admin Controls */}
+                                                                {isMaster && (
+                                                                    <div className="absolute top-2 right-2 z-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); handleRenameMedia(media); }}
+                                                                            className="bg-white/90 p-1.5 rounded-full text-blue-600 hover:bg-blue-50 shadow-sm backdrop-blur-sm transition-transform hover:scale-110"
+                                                                            title="Renomear arquivo"
+                                                                        >
+                                                                            <PencilSimple size={14} weight="bold" />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); handleDeleteMedia(media); }}
+                                                                            className="bg-white/90 p-1.5 rounded-full text-red-600 hover:bg-red-50 shadow-sm backdrop-blur-sm transition-transform hover:scale-110"
+                                                                            title="Excluir arquivo"
+                                                                        >
+                                                                            <Trash size={14} weight="bold" />
+                                                                        </button>
                                                                     </div>
                                                                 )}
 
-                                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                                    <div className="p-2 bg-white rounded-full text-gray-900 shadow-lg">
-                                                                        <DownloadSimple size={20} weight="bold" />
-                                                                    </div>
+                                                                <div className="absolute inset-x-0 bottom-0 p-2 pointer-events-none">
+                                                                    <p className="text-[9px] font-bold text-white truncate drop-shadow-md opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 duration-300">
+                                                                        {filename}
+                                                                    </p>
                                                                 </div>
-                                                            </a>
+                                                            </div>
                                                         );
                                                     })}
                                                 </div>

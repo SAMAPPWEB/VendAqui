@@ -19,6 +19,7 @@ export const mediaService = {
 
             if (uploadError) {
                 console.error('Error uploading file:', uploadError);
+                alert(`Erro no upload (Storage): ${uploadError.message}`);
                 continue;
             }
 
@@ -43,6 +44,7 @@ export const mediaService = {
 
             if (dbError) {
                 console.error('Error saving media metadata:', dbError);
+                alert(`Erro no banco de dados (Tabela ausente?): ${dbError.message}`);
                 continue;
             }
 
@@ -121,5 +123,18 @@ export const mediaService = {
             .remove([filePath]);
 
         if (storageError) console.error('Error removing from storage:', storageError);
+    },
+
+    async updateMedia(mediaId: string, updates: { filename?: string, folderName?: string }): Promise<void> {
+        const dbUpdates: any = {};
+        if (updates.filename) dbUpdates.filename = updates.filename;
+        if (updates.folderName) dbUpdates.folder_name = updates.folderName;
+
+        const { error } = await supabase
+            .from('booking_media')
+            .update(dbUpdates)
+            .eq('id', mediaId);
+
+        if (error) throw error;
     }
 };

@@ -2,7 +2,33 @@ import React, { useState, useMemo } from "react";
 import { Plus, MagnifyingGlass, FilePdf, X, CheckCircle, Receipt, TrashSimple, PencilSimple, Trash, CaretDown, UserPlus, WhatsappLogo } from "phosphor-react";
 import { jsPDF } from "jspdf";
 import { WhiteLabelConfig, Budget, BudgetItem, User, Client, Tour } from "../types";
-import { budgetService, clientService } from "../services/databaseService";
+import { budgetService, clientService, bookingService } from "../services/databaseService";
+
+// Helper for sound alert
+const playErrorSound = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(220, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(110, ctx.currentTime + 0.3);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  } catch (e) {
+    console.error("Audio unavailable");
+  }
+};
+
+const isNightTour = (desc: string) => {
+  const d = desc.toUpperCase();
+  return d.includes("BY NIGHT") || d.includes("PASSARELA DO") || d.includes("PASSARELA") || d.includes("NOTURNO");
+};
+
 
 interface BudgetsViewProps {
   config: WhiteLabelConfig;
@@ -70,8 +96,75 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     }));
   };
 
+  const validateDate = (date: string, itemId: string) => {
+    if (!date) return true;
+
+    // 1. Retrospective Check
+    const selectedDate = new Date(date + "T00:00:00"); // Force local time
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (selectedDate < today) {
+      playErrorSound();
+      alert("⚠️ DATA RETROATIVA NÃO PERMITIDA!\nPor favor, selecione uma data futura ou válida.");
+      return false;
+    }
+
+    // 2. Double Booking Check (Same Client + Same Date)
+    // Rules: 
+    // - One day tour per day allowed.
+    // - Night tour is exception (can have day + night, or multiple nights maybe?)
+    // - Assuming: If I have a Day tour, I cannot add another Day tour. If I have a Night tour, I can add anything? Or if I have a Day, I can add Night?
+    // - User said: "Impedir... a não ser que seja um passeio Noturno".
+    // - Interp: Conflict if (Existing NOT Night AND New NOT Night).
+
+    const currentItem = items.find(i => i.id === itemId);
+    const currentIsNight = currentItem ? isNightTour(currentItem.description) : false;
+
+    // Check against other items in THIS budget
+    const conflictInBudget = items.some(i =>
+      i.id !== itemId &&
+      i.date === date &&
+      !isNightTour(i.description) &&
+      !currentIsNight
+    );
+
+    if (conflictInBudget) {
+      playErrorSound();
+      alert("⚠️ CONFLITO DE AGENDA!\nCliente já possui um passeio DIURNO nesta data neste orçamento.");
+      return false;
+    }
+
+    // Check against OTHER budgets for this client (if we have clientName)
+    if (clientName) {
+      const conflictInOtherBudgets = budgets.some(b =>
+        b.clientName.toUpperCase() === clientName.toUpperCase() &&
+        b.status !== 'CANCELADO' &&
+        b.status !== 'REJEITADO' &&
+        b.items.some(i =>
+          i.date === date &&
+          !isNightTour(i.description) &&
+          !currentIsNight
+        )
+      );
+
+      if (conflictInOtherBudgets) {
+        playErrorSound();
+        alert("⚠️ CONFLITO DE AGENDA!\nEste cliente já possui um passeio DIURNO agendado nesta data em outro orçamento.");
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const handleDateChange = (id: string, date: string) => {
-    updateItem(id, { date });
+    if (validateDate(date, id)) {
+      updateItem(id, { date });
+    } else {
+      // Clear date if invalid
+      updateItem(id, { date: '' });
+    }
   };
 
   // Helper to update specific pax field
@@ -174,9 +267,59 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
       if (editingBudget) {
         const updated = await budgetService.update(editingBudget.id, budgetPayload);
         setBudgets(budgets.map(b => b.id === editingBudget.id ? updated : b));
+
+        // SYNC: If status changed to APROVADO, create bookings
+        if (editingBudget.status !== 'APROVADO' && budgetStatus === 'APROVADO') {
+          try {
+            for (const item of items) {
+              await bookingService.create({
+                clientId: finalClientId || editingBudget.clientName, // Fallback if no ID
+                client: upperName,
+                whatsapp: upperWhatsapp,
+                tour: item.description,
+                date: item.date || formattedToday, // Use item date or today? Logic says item date.
+                pax: item.pax,
+                price: item.total,
+                status: 'CONFIRMADO',
+                location: hotelSearch.toUpperCase() || "A DEFINIR",
+                confirmed: true,
+                bookingNumber: `#${item.id.substring(0, 4)}` // Pseudo number
+              });
+            }
+            alert("✅ Agendamentos gerados com sucesso!");
+          } catch (err) {
+            console.error("Erro ao gerar agendamentos:", err);
+            alert("Orçamento salvo, mas houve erro ao gerar agendamentos.");
+          }
+        }
+
       } else {
         const created = await budgetService.create(budgetPayload);
         setBudgets([created, ...budgets]);
+
+        // SYNC: If created directly as APROVADO
+        if (budgetStatus === 'APROVADO') {
+          try {
+            for (const item of items) {
+              await bookingService.create({
+                clientId: finalClientId || created.id, // Trying to get ID
+                client: upperName,
+                whatsapp: upperWhatsapp,
+                tour: item.description,
+                date: item.date || formattedToday,
+                pax: item.pax,
+                price: item.total,
+                status: 'CONFIRMADO',
+                location: hotelSearch.toUpperCase() || "A DEFINIR",
+                confirmed: true,
+                bookingNumber: `#${created.budgetNumber}`
+              });
+            }
+            alert("✅ Agendamentos gerados com sucesso!");
+          } catch (err) {
+            console.error("Erro ao gerar agendamentos:", err);
+          }
+        }
       }
       setShowModal(false);
       resetForm();

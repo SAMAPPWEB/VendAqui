@@ -41,7 +41,11 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
   const [hotelSearch, setHotelSearch] = useState("");
 
   const [tourValue, setTourValue] = useState("");
-  const [dateValue, setDateValue] = useState("");
+  const [dateValue, setDateValue] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
   const [priceValue, setPriceValue] = useState("");
   const [paxInput, setPaxInput] = useState({ adl: 1, chd: 0, free: 0 });
 
@@ -130,8 +134,9 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
       observation: ""
     };
     setCart(prev => [...prev, newItem]);
-    setTourValue(""); setDateValue(""); setPriceValue("");
-    setPaxInput({ adl: 1, chd: 0, free: 0 });
+    setTourValue(""); setPriceValue("");
+    // Keep Pax values for next item as requested
+    // setPaxInput({ adl: 1, chd: 0, free: 0 }); 
   };
 
   const confirmAndPay = async () => {
@@ -183,10 +188,11 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
         return;
       }
 
-      for (const item of cart) {
-        const agendId = `#Agend.${String(nextIdCount).padStart(4, '0')}`;
-        nextIdCount++;
+      // Generate ID strictly as Agend.XXXX - ONCE for the whole batch
+      const agendId = `Agend.${String(nextIdCount).padStart(4, '0')}`;
+      nextIdCount++;
 
+      for (const item of cart) {
         const newBooking = await bookingService.create({
           bookingNumber: agendId,
           clientId: finalClientId,
@@ -223,23 +229,27 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     const existingClient = clients.find(c => c.id === b.clientId || c.nome.toUpperCase() === b.client.toUpperCase());
     setSelectedClient(existingClient || null);
 
-    setCart([{
-      id: b.id.toString(),
-      tour: b.tour,
-      date: b.date,
-      pax: b.pax,
-      price: b.price,
-      observation: b.observation || ""
-    }]);
+    // Find siblings
+    const siblings = (b.bookingNumber && b.bookingNumber.startsWith('Agend'))
+      ? bookings.filter(bk => bk.bookingNumber === b.bookingNumber)
+      : [b];
 
-    // Set Pax Input for valid editing if user wants to change it (though cart logic might need tweak to reflect back to inputs if we edited cart item directly? 
-    // Simplified: We don't populate the "Add to Cart" inputs when editing an existing Booking, we populate the Cart. 
-    // But if we want to allow editing the "Item" parameters, we should ideally populate the inputs too if we treat it as single-item edit.
-    // For now, let's populate inputs too for better UX in single-edit mode.
-    setPaxInput(b.pax || { adl: 1, chd: 0, free: 0 });
-    setTourValue(b.tour);
-    setDateValue(b.date);
-    setPriceValue(b.price);
+    const newCart = siblings.map(sb => ({
+      id: sb.id.toString(),
+      tour: sb.tour,
+      date: sb.date,
+      pax: sb.pax,
+      price: sb.price,
+      observation: sb.observation || ""
+    }));
+
+    setCart(newCart);
+
+    // Populate inputs with first item data for convenience
+    // setPaxInput(b.pax || { adl: 1, chd: 0, free: 0 });
+    // setTourValue(b.tour);
+    // setDateValue(b.date);
+    // setPriceValue(b.price);
 
     setPaymentMethod(b.paymentMethod || "PIX");
     setModalStep('FORM');
@@ -253,10 +263,22 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
   };
 
   const handleDelete = async (id: string | number) => {
+    // Check if it's a group
+    const booking = bookings.find(b => b.id === id);
+    if (!booking) return;
+
     if (confirm("Tem certeza que deseja excluir este agendamento?")) {
       try {
-        await bookingService.delete(id);
-        setBookings(bookings.filter(b => b.id !== id));
+        if (booking.bookingNumber && booking.bookingNumber.startsWith('Agend')) {
+          const siblings = bookings.filter(b => b.bookingNumber === booking.bookingNumber);
+          for (const sb of siblings) {
+            await bookingService.delete(String(sb.id));
+          }
+          setBookings(bookings.filter(b => b.bookingNumber !== booking.bookingNumber));
+        } else {
+          await bookingService.delete(String(id));
+          setBookings(bookings.filter(b => b.id !== id));
+        }
       } catch (error) {
         console.error("Erro ao excluir:", error);
         alert("Erro ao excluir agendamento.");
@@ -310,6 +332,11 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
       format: [215, 110]
     });
 
+    // Find siblings if part of a group
+    const relatedBookings = (b.bookingNumber && b.bookingNumber.startsWith('Agend'))
+      ? bookings.filter(bk => bk.bookingNumber === b.bookingNumber)
+      : [b];
+
     const primaryColor = config.primaryColor || "#F97316";
     const width = 215;
     const height = 110;
@@ -333,13 +360,20 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     doc.text("VOUCHER DE SERVIÇO", 32, 16);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    // Show ID/Booking Number - Cleaner Layout
+
+    // Show ID
     const rawId = b.bookingNumber || String(b.id);
-    // If it's a long UUID, take start/end or rely on bookingNumber being pre-formatted. 
-    // User requested "Agend.0001". If rawId is uuid, use short hash.
-    const bookingIdDisplay = rawId.length > 20 && !rawId.includes("Agend")
-      ? `#${rawId.slice(0, 8)}`
-      : rawId.replace("#", "");
+    let bookingIdDisplay = rawId;
+    if (bookingIdDisplay.includes("-") && !bookingIdDisplay.includes("Agend")) {
+      bookingIdDisplay = `#${bookingIdDisplay.slice(0, 8)}`;
+    } else {
+      bookingIdDisplay = bookingIdDisplay.replace("#", "");
+      if (!bookingIdDisplay.startsWith("Agend")) {
+        if (!isNaN(Number(bookingIdDisplay))) {
+          bookingIdDisplay = `Agend.${bookingIdDisplay.padStart(4, '0')}`;
+        }
+      }
+    }
 
     doc.text(`CÓDIGO: ${bookingIdDisplay} | EMISSÃO: ${new Date().toLocaleDateString('pt-BR')}`, width - 10, 15, { align: "right" });
 
@@ -352,7 +386,6 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     doc.setFont("helvetica", "normal");
     yPos += 5;
 
-    // Auto-wrap company name if too long
     const companyName = doc.splitTextToSize(config.instanceName, 90);
     doc.text(companyName, 10, yPos);
     yPos += (companyName.length * 4.5);
@@ -365,7 +398,6 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     doc.text(address, 10, yPos);
 
     // --- CLIENTE & OPERAÇÃO (RIGHT) ---
-    // Fixed X position to avoid overlap
     const rightColX = 110;
     yPos = 35;
     doc.setFontSize(bodyFontSize);
@@ -379,7 +411,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     yPos += 4.5;
     doc.text(`OPERADOR: SISTEMA`, rightColX, yPos);
 
-    // --- STATUS: APROVADO ---
+    // --- STATUS ---
     yPos += 8;
     doc.setFont("helvetica", "bold");
     doc.setTextColor(22, 163, 74); // Green
@@ -393,7 +425,6 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     doc.setFont("helvetica", "bold");
     doc.setFontSize(bodyFontSize - 1);
     doc.text("DESCRIÇÃO DO SERVIÇO", 15, yPos + 5);
-    // Adjusted coordinates to prevent overlap: Date at 100, Pax at 155
     doc.text("DATA", 100, yPos + 5);
     doc.text("PAX", 155, yPos + 5, { align: "center" });
     doc.text("TOTAL", width - 15, yPos + 5, { align: "right" });
@@ -401,27 +432,31 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     yPos += 11;
     doc.setFont("helvetica", "normal");
 
-    // Service Name
-    doc.text(b.tour, 15, yPos);
-    // Date - Long format
-    doc.text(formatDateLong(b.date), 100, yPos);
+    // Loop Items
+    let totalVal = 0;
+    relatedBookings.forEach(item => {
+      // Safe Price Parse
+      const val = parseFloat(item.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
+      totalVal += val;
 
-    // Pax Breakdown
-    const paxStr = typeof b.pax === 'object'
-      ? `${b.pax.adl || 0} ADL | ${b.pax.chd || 0} CHD | ${b.pax.free || 0} FREE`
-      : `${b.pax}`;
-    doc.text(paxStr, 155, yPos, { align: "center" });
+      const tourTitle = doc.splitTextToSize(item.tour, 80);
+      doc.text(tourTitle, 15, yPos);
+      doc.text(formatDateLong(item.date), 100, yPos);
 
-    // Total Value
-    // Ensure BRL format
-    const val = parseFloat(b.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0;
-    const valFormatted = val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    doc.text(valFormatted, width - 15, yPos, { align: "right" });
+      const paxStr = typeof item.pax === 'object'
+        ? `${item.pax.adl || 0} ADL | ${item.pax.chd || 0} CHD`
+        : `${item.pax}`;
+      doc.text(paxStr, 155, yPos, { align: "center" });
 
-    // --- NO FOOTER PAYMENT INFO (As requested for Confirmation Voucher) ---
-    // User asked to remove Pix/QR and Payment methods from valid confirmation voucher.
+      const valFormatted = val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+      doc.text(valFormatted, width - 15, yPos, { align: "right" });
+
+      yPos += (tourTitle.length * 4) + 2; // Dynamic spacing
+    });
 
     // Footer Total Box
+    const totalFormatted = totalVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
     yPos = height - 15;
     doc.setFillColor(31, 41, 55);
     doc.rect(width - 70, yPos, 60, 10, "F");
@@ -430,7 +465,7 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     doc.text("VALOR TOTAL:", width - 65, yPos + 6.5);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(valFormatted, width - 15, yPos + 6.5, { align: "right" });
+    doc.text(totalFormatted, width - 15, yPos + 6.5, { align: "right" });
 
     doc.save(`Voucher_${b.client}_${bookingIdDisplay}.pdf`);
   };
@@ -439,7 +474,38 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
     b.client.toLowerCase().includes(search.toLowerCase()) ||
     (b.bookingNumber && b.bookingNumber.toLowerCase().includes(search.toLowerCase())) ||
     b.whatsapp.includes(search)
-  );
+  ).sort((a, b) => {
+    // Sort Descending by ID (Agend.XXXX)
+    const getNum = (str?: string) => {
+      if (!str) return 0;
+      const num = parseInt(str.replace(/\D/g, ''));
+      return isNaN(num) ? 0 : num;
+    };
+
+    const idA = getNum(a.bookingNumber) || parseInt(a.id as string) || 0;
+    const idB = getNum(b.bookingNumber) || parseInt(b.id as string) || 0;
+
+    return idB - idA;
+  });
+
+  const groupedBookings = useMemo(() => {
+    const orderedGroups: Booking[][] = [];
+    const processedIds = new Set<string>();
+
+    for (const b of filteredBookings) {
+      if (processedIds.has(String(b.id))) continue;
+
+      if (b.bookingNumber && b.bookingNumber.startsWith('Agend')) {
+        const siblings = filteredBookings.filter(sb => sb.bookingNumber === b.bookingNumber);
+        orderedGroups.push(siblings);
+        siblings.forEach(sb => processedIds.add(String(sb.id)));
+      } else {
+        orderedGroups.push([b]);
+        processedIds.add(String(b.id));
+      }
+    }
+    return orderedGroups;
+  }, [filteredBookings]);
 
   return (
     <div className="px-6 pb-20">
@@ -529,50 +595,59 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
 
         {viewMode === 'LIST' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredBookings.map(b => (
-              <div key={b.id} className="agenda-card bg-white border-gray-100 p-4 space-y-3 shadow-sm">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <div className="mb-1">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
-                        {/* ID Format: Use bookingNumber (remove #) or fallback to shortened ID */}
-                        {b.bookingNumber ? b.bookingNumber.replace("#", "") : `Agend.${b.id.toString().slice(-4)}`}
-                      </span>
+            {groupedBookings.map(group => {
+              const b = group[0];
+              const totalVal = group.reduce((acc, curr) => acc + (parseFloat(curr.price.replace(/[^\d,]/g, '').replace(',', '.')) || 0), 0);
+              const totalFormatted = totalVal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+              return (
+                <div key={b.id} className="agenda-card bg-white border-gray-100 p-4 space-y-3 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="mb-1">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">
+                          {/* ID Format */}
+                          {b.bookingNumber ? b.bookingNumber.replace("#", "") : `Agend.${String(b.id).slice(-4)}`}
+                        </span>
+                      </div>
+                      <h4 className="font-black text-sm text-gray-900 uppercase leading-none mb-1">{b.client}</h4>
+
+                      {/* Items List */}
+                      <div className="space-y-2 mt-3">
+                        {group.map(item => (
+                          <div key={item.id} className="border-l-2 border-orange-100 pl-2">
+                            <p className="text-[10px] text-orange-600 font-bold uppercase tracking-tight">{item.tour}</p>
+                            <p className="text-[9px] text-gray-400 font-bold uppercase">
+                              {formatDateLong(item.date)} • {typeof item.pax === 'object' ? `${item.pax.adl + item.pax.chd + item.pax.free} PAX` : `${item.pax} PAX`} • R$ {item.price}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <h4 className="font-black text-sm text-gray-900 uppercase leading-none mb-1">{b.client}</h4>
-                    <p className="text-[10px] text-orange-600 font-bold uppercase tracking-tight">{b.tour}</p>
-                    {/* PAX INFO */}
-                    <p className="text-[9px] text-gray-400 font-bold uppercase mt-1">
-                      {typeof b.pax === 'object'
-                        ? `${b.pax.adl} ADL | ${b.pax.chd} CHD | ${b.pax.free} FREE`
-                        : `${b.pax} PAX`}
-                    </p>
+                    <div className="text-right">
+                      <p className="text-[9px] font-black text-gray-400 uppercase">TOTAL</p>
+                      <p className="text-sm font-black text-gray-900">{totalFormatted}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black text-gray-400 uppercase">{formatDateLong(b.date)}</p>
-                    <p className="text-sm font-black text-gray-900">
-                      {parseFloat(b.price.replace(/[^\d,]/g, '').replace(',', '.')).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </p>
+                  <div className="flex gap-2 pt-2 border-t border-gray-50">
+                    <button onClick={() => handleWhatsAppShare(b)} className="flex-1 bg-[#25D366] text-white py-3 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
+                      <WhatsappLogo size={16} weight="fill" /> WhatsApp
+                    </button>
+                    <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 text-white py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
+                      <FilePdf size={16} weight="fill" /> Voucher
+                    </button>
+                    <button onClick={() => openEdit(b)} className="w-12 bg-gray-50 text-gray-400 rounded-xl hover:text-orange-500 hover:bg-orange-50 transition-colors cursor-pointer flex items-center justify-center active:scale-95">
+                      <PencilSimple size={20} weight="bold" />
+                    </button>
+                    <button onClick={() => handleDelete(b.id)} className="p-3 bg-red-50 text-red-500 rounded-xl active:scale-95 transition-all">
+                      <Trash size={20} />
+                    </button>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => handleWhatsAppShare(b)} className="flex-1 bg-[#25D366] text-white py-3 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
-                    <WhatsappLogo size={16} weight="fill" /> WhatsApp
-                  </button>
-                  <button onClick={() => handleGeneratePDF(b)} className="flex-1 bg-gray-900 text-white py-3 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 active:scale-95 transition-all">
-                    <FilePdf size={16} weight="fill" /> Voucher
-                  </button>
-                  <button onClick={() => openEdit(b)} className="w-12 bg-gray-50 text-gray-400 rounded-xl hover:text-orange-500 hover:bg-orange-50 transition-colors cursor-pointer flex items-center justify-center active:scale-95">
-                    <PencilSimple size={20} weight="bold" />
-                  </button>
-                  <button onClick={() => handleDelete(b.id)} className="p-3 bg-red-50 text-red-500 rounded-xl active:scale-95 transition-all">
-                    <Trash size={20} />
-                  </button>
-                </div>
-              </div>
-            ))}
-            {filteredBookings.length === 0 && (
-              <div className="py-20 text-center opacity-30 flex flex-col items-center">
+              );
+            })}
+            {groupedBookings.length === 0 && (
+              <div className="py-20 text-center opacity-30 flex flex-col items-center col-span-2">
                 <CalendarPlus size={48} className="mb-2" />
                 <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma reserva localizada</p>
               </div>
@@ -694,47 +769,35 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                       </div>
 
                       <div className="relative">
-                        <MagnifyingGlass size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                          value={selectedClient ? selectedClient.nome : clientSearch}
-                          onChange={e => {
-                            setClientSearch(e.target.value.toUpperCase());
-                            if (selectedClient) {
+                        <select
+                          value={selectedClient?.id || ""}
+                          onChange={(e) => {
+                            const c = clients.find(x => x.id === e.target.value);
+                            if (c) {
+                              setSelectedClient(c);
+                              setClientName(c.nome);
+                              setWhatsappValue(c.whatsapp);
+                              setHotelSearch(c.endereco || "");
+                              setClientSearch(""); // Clear search just in case
+                            } else {
                               setSelectedClient(null);
                               setClientName("");
                               setWhatsappValue("");
                               setHotelSearch("");
                             }
                           }}
-                          placeholder="DIGITE NOME OU CELULAR..."
-                          className={`w-full bg-gray-50 border ${selectedClient ? 'border-orange-500 bg-orange-50' : 'border-gray-100'} rounded-2xl py-4 pl-12 pr-4 text-sm font-bold outline-none uppercase transition-all`}
-                        />
-                        {selectedClient && (
-                          <button onClick={() => { setSelectedClient(null); setClientSearch(""); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">
-                            <X size={16} weight="bold" />
-                          </button>
-                        )}
-
-                        {!selectedClient && filteredClientsSearch.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 bg-white border border-gray-100 rounded-2xl mt-1 shadow-2xl z-[100] max-h-[200px] overflow-y-auto no-scrollbar">
-                            {filteredClientsSearch.map(c => (
-                              <button
-                                key={c.id}
-                                onClick={() => {
-                                  setSelectedClient(c);
-                                  setClientName(c.nome);
-                                  setWhatsappValue(c.whatsapp);
-                                  setHotelSearch(c.endereco);
-                                  setClientSearch("");
-                                }}
-                                className="w-full text-left p-4 hover:bg-orange-50 flex flex-col border-b border-gray-50 last:border-0"
-                              >
-                                <span className="text-[11px] font-black uppercase text-gray-900">{c.nome}</span>
-                                <span className="text-[9px] text-gray-400 font-bold uppercase">{c.whatsapp}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
+                          className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 px-5 text-sm font-bold outline-none focus:border-orange-500 uppercase appearance-none"
+                        >
+                          <option value="">SELECIONE UM CLIENTE...</option>
+                          {clients.map(c => (
+                            <option key={c.id} value={c.id}>
+                              {c.nome} - {c.whatsapp}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                          <CaretRight size={16} weight="bold" className="rotate-90" />
+                        </div>
                       </div>
                     </div>
 
@@ -849,7 +912,12 @@ const BookingsView: React.FC<BookingsViewProps> = ({ config, bookings, setBookin
                 <div className="space-y-8 py-4">
                   <div className="bg-gray-50 p-8 rounded-[32px] text-center border border-gray-100 shadow-inner">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Valor Total</p>
-                    <span className="text-4xl font-black text-gray-900">R$ {cart.reduce((a, c) => a + parseFloat(c.price.replace(",", ".")), 0).toFixed(2).replace(".", ",")}</span>
+                    <span className="text-4xl font-black text-gray-900">
+                      {cart.reduce((a, c) => {
+                        const val = parseFloat(c.price.replace(/[^\d,]/g, "").replace(",", "."));
+                        return a + (isNaN(val) ? 0 : val);
+                      }, 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
                     <button onClick={() => setPaymentMethod('PIX')} className={`p-6 rounded-3xl border-2 flex flex-col items-center gap-3 transition-all ${paymentMethod === 'PIX' ? 'border-orange-500 bg-orange-50 text-orange-600' : 'border-gray-100 bg-gray-50 text-gray-400'}`}>

@@ -43,7 +43,13 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
   };
 
   const parseCurrency = (value: string) => {
-    return parseFloat(value.replace(/\./g, "").replace(",", ".")) || 0;
+    if (!value) return 0;
+    // Check if the value is a number-like string with a dot as decimal separator (e.g. "1234.56")
+    // and DOES NOT look like a BR format (e.g. "1.234,56")
+    // Simple heuristic: if it has a dot but no comma, treat dot as decimal? 
+    // Or just trust the app uses BR format exclusively (dot = thousands).
+    // Given the context of the app (BR), we stick to BR: dot removed, comma -> dot.
+    return parseFloat(value.toString().replace(/\./g, "").replace(",", ".")) || 0;
   };
 
   const handlePriceChange = (id: string, value: string) => {
@@ -78,7 +84,9 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
   };
 
   const addNewItem = () => {
-    setItems([...items, { id: Math.random().toString(36).substr(2, 9), description: '', pax: { adl: 1, chd: 0, free: 0 }, unitPrice: '', total: '' }]);
+    const lastItem = items[items.length - 1];
+    const initialPax = lastItem ? { ...lastItem.pax } : { adl: 1, chd: 0, free: 0 };
+    setItems([...items, { id: Math.random().toString(36).substr(2, 9), description: '', pax: initialPax, unitPrice: '', total: '' }]);
   };
 
   const removeItem = (id: string) => {
@@ -203,7 +211,9 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
     // For now assuming all data maps correctly, or we fix on load
     const mappedItems = b.items.map(i => ({
       ...i,
-      pax: typeof i.pax === 'number' ? { adl: i.pax, chd: 0, free: 0 } : i.pax
+      pax: typeof i.pax === 'number' ? { adl: i.pax, chd: 0, free: 0 } : i.pax,
+      // Fix: ensure total matches unitPrice immediately on open to fix multiplied totals
+      total: i.unitPrice
     }));
     setItems(mappedItems);
     setBudgetStatus(b.status as any || 'PENDENTE');
@@ -390,9 +400,10 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
             // Calculate Summary Data
             const totalPax = b.items.reduce((acc, item) => {
               const p = item.pax;
-              return acc + (p.adl || 0) + (p.chd || 0) + (p.free || 0);
+              if (typeof p === 'number') return acc + p;
+              return acc + (Number(p.adl) || 0) + (Number(p.chd) || 0) + (Number(p.free) || 0);
             }, 0);
-            const tourNames = b.items.map(i => i.description).join(", ");
+            const tourNames = b.items.map(i => i.description || "Item sem nome").join(", ");
 
             return (
               <div key={b.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-all group relative overflow-hidden">
@@ -415,7 +426,7 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
                     <div>
                       <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Valor Total</p>
                       <p className="text-lg font-black text-gray-900">
-                        R$ {b.totalAmount}
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseCurrency(b.totalAmount))}
                       </p>
                     </div>
 
@@ -552,7 +563,10 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
                       </div>
                       <div className="text-right mt-2">
                         <span className="text-[10px] font-black text-gray-400">Total Item: </span>
-                        <span className="text-sm font-black text-gray-900">R$ {item.total}</span>
+                        <span className="text-sm font-black text-gray-900">
+                          {/* Ensure item.total is formatted if it's a raw number string */}
+                          R$ {item.total.includes(',') ? item.total : parseFloat(item.total || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
                       </div>
                     </div>
                   ))}
@@ -563,7 +577,9 @@ const BudgetsView: React.FC<BudgetsViewProps> = ({ config, budgets, setBudgets, 
               <div className="sticky bottom-0 bg-white pt-4 pb-2 border-t border-gray-100">
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-xs font-black uppercase text-gray-500">Total Geral</span>
-                  <span className="text-2xl font-black text-gray-900">R$ {totalAmount}</span>
+                  <span className="text-2xl font-black text-gray-900">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseCurrency(totalAmount))}
+                  </span>
                 </div>
                 <button type="submit" className="w-full bg-orange-500 text-white py-4 rounded-xl font-black uppercase shadow-lg shadow-orange-500/30 active:scale-95 transition-transform">
                   Salvar Orçamento
